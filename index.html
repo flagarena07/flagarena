@@ -15,7 +15,7 @@ body{
 
 #title{
   text-align:center;
-  font-size:40px;
+  font-size:38px;
   margin-top:20px;
   letter-spacing:4px;
 }
@@ -24,20 +24,19 @@ canvas{
   display:block;
   margin:auto;
   margin-top:20px;
-  background:black;
 }
 
 #bottomArea{
   position:fixed;
   bottom:0;
   width:100%;
-  height:200px;
+  height:180px;
   background:#111;
   display:flex;
   flex-wrap:wrap;
   justify-content:center;
   align-content:flex-start;
-  gap:8px;
+  gap:6px;
   padding:10px;
   box-sizing:border-box;
   overflow-y:auto;
@@ -45,11 +44,11 @@ canvas{
 
 .eliminated{
   text-align:center;
-  font-size:10px;
+  font-size:9px;
 }
 
 .eliminated img{
-  width:30px;
+  width:28px;
   display:block;
   margin:auto;
 }
@@ -71,43 +70,72 @@ const centerX = canvas.width/2;
 const centerY = canvas.height/2;
 
 let radius = 280;
-let gapAngle = 0.5;
-let shrinkSpeed = 0.05;
+let gapSize = 0.6;
+let shrinkSpeed = 0.03;
 
+const countryCodes = [
+"tr","us","de","fr","gb","it","es","br","ar","jp",
+"cn","ru","ca","au","mx","kr","nl","se","no","pl",
+"sa","ae","gr","pt","ch","be","at","dk","fi","hu"
+];
+
+let flags = {};
 let countries = [];
 let eliminated = [];
 
-const baseFlags = ["tr","us","de","fr","gb","it","es","br","ar","jp","cn","ru","ca","au","mx"];
-while(baseFlags.length < 60){
-  baseFlags.push(baseFlags[baseFlags.length % 15]);
-}
+let loaded = 0;
 
-baseFlags.forEach(code=>{
-  countries.push({
-    code:code,
-    angle:Math.random()*Math.PI*2,
-    speed:0.05 + Math.random()*0.03
-  });
+countryCodes.forEach(code=>{
+  const img = new Image();
+  img.src = `https://flagcdn.com/w40/${code}.png`;
+  img.onload = ()=>{
+    loaded++;
+    if(loaded === countryCodes.length){
+      startGame();
+    }
+  };
+  flags[code] = img;
 });
 
+function startGame(){
+
+  countryCodes.forEach(code=>{
+
+    let angle = Math.random()*Math.PI*2;
+    let r = Math.random()*(radius-60);
+
+    countries.push({
+      code:code,
+      x:centerX + Math.cos(angle)*r,
+      y:centerY + Math.sin(angle)*r,
+      vx:(Math.random()-0.5)*3,
+      vy:(Math.random()-0.5)*3
+    });
+  });
+
+  animate();
+}
+
 function drawCircle(){
+
   ctx.beginPath();
   ctx.arc(centerX,centerY,radius,0,Math.PI*2);
   ctx.strokeStyle="white";
   ctx.lineWidth=3;
   ctx.stroke();
 
-  // boşluk
   ctx.beginPath();
-  ctx.arc(centerX,centerY,radius,-gapAngle/2,gapAngle/2);
+  ctx.arc(centerX,centerY,radius,-gapSize/2,gapSize/2);
   ctx.strokeStyle="black";
   ctx.lineWidth=6;
   ctx.stroke();
 }
 
 function updateBottom(){
+
   const area = document.getElementById("bottomArea");
   area.innerHTML="";
+
   eliminated.forEach(c=>{
     const div = document.createElement("div");
     div.className="eliminated";
@@ -122,7 +150,7 @@ function animate(){
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  if(radius > 180){
+  if(radius > 170){
     radius -= shrinkSpeed;
   }
 
@@ -132,28 +160,46 @@ function animate(){
 
   for(let c of countries){
 
-    const x = centerX + Math.cos(c.angle)*(radius-25);
-    const y = centerY + Math.sin(c.angle)*(radius-25);
+    c.x += c.vx;
+    c.y += c.vy;
 
-    // bayrak çiz
-    const img = new Image();
-    img.src = `https://flagcdn.com/w40/${c.code}.png`;
-    ctx.drawImage(img, x-15, y-10, 30, 20);
+    let dx = c.x - centerX;
+    let dy = c.y - centerY;
+    let distance = Math.sqrt(dx*dx + dy*dy);
+
+    let angle = Math.atan2(dy,dx);
+
+    // duvara çarptıysa
+    if(distance >= radius-20){
+
+      // boşluk kontrol
+      if(angle > -gapSize/2 && angle < gapSize/2){
+        eliminated.push(c);
+        updateBottom();
+        continue;
+      }
+
+      // sekme
+      let normalX = dx/distance;
+      let normalY = dy/distance;
+
+      let dot = c.vx*normalX + c.vy*normalY;
+
+      c.vx -= 2*dot*normalX;
+      c.vy -= 2*dot*normalY;
+
+      c.x = centerX + normalX*(radius-22);
+      c.y = centerY + normalY*(radius-22);
+    }
+
+    ctx.drawImage(flags[c.code], c.x-15, c.y-10, 30, 20);
 
     ctx.fillStyle="white";
     ctx.font="10px Arial";
     ctx.textAlign="center";
-    ctx.fillText(c.code.toUpperCase(), x, y+18);
+    ctx.fillText(c.code.toUpperCase(), c.x, c.y+18);
 
-    // boşluk kontrol
-    if(c.angle > -gapAngle/2 && c.angle < gapAngle/2){
-      eliminated.push(c);
-      updateBottom();
-    } else {
-      survivors.push(c);
-    }
-
-    c.angle += c.speed;
+    survivors.push(c);
   }
 
   countries = survivors;
@@ -162,8 +208,6 @@ function animate(){
     requestAnimationFrame(animate);
   }
 }
-
-animate();
 
 </script>
 
