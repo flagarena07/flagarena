@@ -6,41 +6,40 @@
 <style>
 body{
     margin:0;
-    background:#0e0e0e;
+    background:#0f0f0f;
     font-family:Arial, Helvetica, sans-serif;
     overflow:hidden;
     color:white;
 }
 
 #backgroundText{
-    position:absolute;
+    position:fixed;
     top:50%;
     left:50%;
     transform:translate(-50%,-50%);
-    font-size:120px;
+    font-size:140px;
     font-weight:900;
-    color:white;
-    opacity:0.05;
+    opacity:0.04;
     pointer-events:none;
     white-space:nowrap;
 }
 
 #arena{
-    position:absolute;
+    position:fixed;
     top:50%;
     left:50%;
+    width:650px;
+    height:650px;
     transform:translate(-50%,-50%);
-    width:600px;
-    height:600px;
     border-radius:50%;
-    border:6px solid #ffffff22;
 }
 
 .flag{
     position:absolute;
-    width:70px;
+    width:80px;
     text-align:center;
     font-size:12px;
+    transform:translate(-50%,-50%);
 }
 
 .flag img{
@@ -50,16 +49,16 @@ body{
 }
 
 #countdown{
-    position:absolute;
+    position:fixed;
     top:50%;
     left:50%;
     transform:translate(-50%,-50%);
-    font-size:100px;
+    font-size:110px;
     font-weight:bold;
 }
 
 #winner{
-    position:absolute;
+    position:fixed;
     top:20px;
     left:50%;
     transform:translateX(-50%);
@@ -68,15 +67,15 @@ body{
 }
 
 #topWins{
-    position:absolute;
+    position:fixed;
     right:20px;
     top:20px;
-    width:220px;
+    width:230px;
 }
 
 #topWins h2{
-    margin:0 0 10px 0;
     text-align:center;
+    margin-bottom:10px;
 }
 
 .winItem{
@@ -96,9 +95,9 @@ body{
 <body>
 
 <div id="backgroundText">FLAG ARENA</div>
-<div id="winner"></div>
 <div id="arena"></div>
 <div id="countdown"></div>
+<div id="winner"></div>
 
 <div id="topWins">
 <h2>TOP 10 WINS</h2>
@@ -114,23 +113,20 @@ const countries = [
 "bg","cz","hu","at","ie","il","eg","za","th","id"
 ];
 
-// 40 örnek koydum. İstersen 195 ISO kod listesi ekleyebilirim.
-
 const arena = document.getElementById("arena");
 const countdownEl = document.getElementById("countdown");
 const winnerEl = document.getElementById("winner");
 const winsList = document.getElementById("winsList");
 
-let angle = 0;
-let speed = 0.05; // Sabit hızlı
 let flags = [];
 let wins = {};
+let rotation = 0;
+let lastTime = 0;
+const speed = 1.2; // radians per second (yüksek sabit hız)
 
 function createFlags(){
-    arena.innerHTML="";
-    flags=[];
-    const radius = 250;
-    const center = 300;
+    const radius = 300;
+    const center = 325;
 
     countries.forEach((code,i)=>{
         const div = document.createElement("div");
@@ -143,37 +139,43 @@ function createFlags(){
 
         flags.push({
             el:div,
-            angle:(2*Math.PI/countries.length)*i
+            baseAngle:(2*Math.PI/countries.length)*i
         });
     });
 }
 
-function updatePositions(){
-    const radius=250;
-    const center=300;
+function animate(time){
+    if(!lastTime) lastTime = time;
+    const delta = (time - lastTime) / 1000;
+    lastTime = time;
+
+    rotation += speed * delta;
+
+    const radius = 300;
+    const center = 325;
 
     flags.forEach(f=>{
-        const x=center + radius*Math.cos(f.angle) - 35;
-        const y=center + radius*Math.sin(f.angle) - 25;
-        f.el.style.left=x+"px";
-        f.el.style.top=y+"px";
-        f.angle += speed;
+        const angle = f.baseAngle + rotation;
+        const x = center + radius*Math.cos(angle);
+        const y = center + radius*Math.sin(angle);
+        f.el.style.left = x + "px";
+        f.el.style.top = y + "px";
     });
 
-    requestAnimationFrame(updatePositions);
+    requestAnimationFrame(animate);
 }
 
 function startCountdown(){
-    let count=10;
-    countdownEl.innerText=count;
+    let count = 10;
+    countdownEl.innerText = count;
 
-    const interval=setInterval(()=>{
+    const interval = setInterval(()=>{
         count--;
-        countdownEl.innerText=count;
+        countdownEl.innerText = count;
 
-        if(count===0){
+        if(count === 0){
             clearInterval(interval);
-            countdownEl.innerText="";
+            countdownEl.innerText = "";
             startGame();
         }
     },1000);
@@ -182,13 +184,12 @@ function startCountdown(){
 function startGame(){
     setTimeout(()=>{
         const winner = countries[Math.floor(Math.random()*countries.length)];
-        winnerEl.innerText="🏆 Winner: "+winner.toUpperCase();
+        winnerEl.innerText = "🏆 Winner: " + winner.toUpperCase();
 
-        if(!wins[winner]) wins[winner]=0;
+        if(!wins[winner]) wins[winner] = 0;
         wins[winner]++;
         updateTopWins();
-
-    },5000);
+    },4000);
 }
 
 function updateTopWins(){
@@ -209,7 +210,7 @@ function updateTopWins(){
 }
 
 createFlags();
-updatePositions();
+requestAnimationFrame(animate);
 startCountdown();
 
 </script>
