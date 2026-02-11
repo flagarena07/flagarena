@@ -3,193 +3,198 @@
 <head>
 <meta charset="UTF-8">
 <title>Flag Arena</title>
-
 <style>
-body{
-    margin:0;
-    overflow:hidden;
-    background:#0b0f1a;
-    font-family:Arial, sans-serif;
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #0b0f1a;
+  font-family: Arial, sans-serif;
+  color: white;
 }
 
-/* Arka plan yazısı tam ortalı */
-#bgText{
-    position:fixed;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-size:120px;
-    font-weight:900;
-    color:rgba(255,255,255,0.05);
-    letter-spacing:20px;
-    white-space:nowrap;
-    pointer-events:none;
+/* Arka plan efekt */
+@keyframes bgAnim {
+  0% {background: #0b0f1a;}
+  25% {background: #112244;}
+  50% {background: #0f1a2a;}
+  75% {background: #162a44;}
+  100% {background: #0b0f1a;}
+}
+body {
+  animation: bgAnim 12s linear infinite;
 }
 
-#topwins{
-    position:absolute;
-    top:20px;
-    right:20px;
-    background:rgba(0,0,0,0.6);
-    padding:15px;
-    border-radius:12px;
-    color:white;
-    font-size:14px;
+canvas {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
-#eliminated{
-    position:absolute;
-    bottom:15px;
-    width:100%;
-    text-align:center;
-    font-size:20px;
-    color:white;
+/* Top wins panel */
+#topWins {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+}
+
+#topWins b {
+  display: block;
+  text-align: center;
+  margin-bottom: 8px;
+  color: #ffcc00;
+}
+
+/* Eliminated */
+#eliminated {
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+  text-align: center;
+  font-size: 18px;
 }
 </style>
 </head>
 <body>
 
-<div id="bgText">FLAG ARENA</div>
-
 <canvas id="arena"></canvas>
 
-<div id="topwins">
-<b>TOP WINS</b>
-<div id="winsList"></div>
+<div id="topWins">
+  <b>TOP WINS</b>
+  <div id="winsList"></div>
 </div>
 
 <div id="eliminated"></div>
 
 <script>
 
-const canvas=document.getElementById("arena");
-const ctx=canvas.getContext("2d");
+// --- SETUP ---
+const canvas = document.getElementById("arena");
+const ctx = canvas.getContext("2d");
 
-function resizeCanvas(){
-    canvas.width=window.innerWidth;
-    canvas.height=window.innerHeight;
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 }
-resizeCanvas();
-window.addEventListener("resize",resizeCanvas);
+resize();
+window.addEventListener("resize", resize);
 
-function centerX(){ return canvas.width/2; }
-function centerY(){ return canvas.height/2; }
+function CX() { return canvas.width / 2; }
+function CY() { return canvas.height / 2; }
 
-const arenaRadius=300;
-let rotation=0;
+// --- ARKADE DÖNEN ARENA ----
+let rotation = 0;
+const arenaRadius = Math.min(window.innerWidth, window.innerHeight) / 3;
 
-const eliminatedDiv=document.getElementById("eliminated");
-
-let eliminatedFlags=[];
-
-/* 100+ ülke bayrağı */
-const flags=[
-"🇺🇸","🇹🇷","🇩🇪","🇫🇷","🇧🇷","🇯🇵","🇮🇹","🇬🇧","🇨🇦","🇦🇷",
-"🇪🇸","🇰🇷","🇲🇽","🇳🇱","🇨🇭","🇸🇪","🇳🇴","🇵🇹","🇬🇷","🇮🇳",
-"🇨🇳","🇷🇺","🇦🇺","🇳🇿","🇿🇦","🇪🇬","🇸🇦","🇦🇪","🇮🇷","🇮🇶",
-"🇵🇱","🇺🇦","🇧🇪","🇦🇹","🇩🇰","🇫🇮","🇮🇪","🇮🇱","🇹🇭","🇻🇳",
-"🇲🇾","🇸🇬","🇵🇭","🇮🇩","🇵🇰","🇧🇩","🇨🇱","🇵🇪","🇨🇴","🇻🇪",
-"🇨🇿","🇭🇺","🇷🇴","🇧🇬","🇭🇷","🇷🇸","🇸🇰","🇸🇮","🇱🇹","🇱🇻",
-"🇪🇪","🇰🇿","🇺🇿","🇰🇪","🇳🇬","🇪🇹","🇲🇦","🇹🇳","🇶🇦","🇰🇼",
-"🇴🇲","🇯🇴","🇱🇧","🇲🇳","🇳🇵","🇱🇰","🇰🇭","🇱🇦","🇲🇲","🇧🇹"
+// Bayrak emojileri
+const flags = [
+"us","tr","de","fr","br","jp","it","gb","ca","ar",
+"es","kr","mx","nl","ch","se","no","pt","gr","in",
+"cn","ru","au","nz","za","eg","sa","ae","ir","iq"
 ];
 
-let particles=[];
+// Motion particles
+let particles = [];
+let eliminated = [];
+let wins = {};
 
-function init(){
-    particles=[];
-    eliminatedFlags=[];
-    eliminatedDiv.innerHTML="";
-    flags.forEach(flag=>{
-        particles.push({
-            flag:flag,
-            x:centerX()+(Math.random()-0.5)*150,
-            y:centerY()+(Math.random()-0.5)*150,
-            vx:(Math.random()-0.5)*10,  // daha hızlı
-            vy:(Math.random()-0.5)*10,
-            r:20
-        });
+// Başlat
+function init() {
+  particles = [];
+  eliminated = [];
+  document.getElementById("eliminated").innerHTML = "";
+  flags.forEach(code => {
+    wins[code] = wins[code] || 0;
+    particles.push({
+      code: code,
+      x: CX() + (Math.random()-0.5)*100,
+      y: CY() + (Math.random()-0.5)*100,
+      vx: (Math.random()-0.5)*8,
+      vy: (Math.random()-0.5)*8,
+      r: 20
     });
+  });
 }
 init();
 
-function drawArena(){
-    rotation+=0.015; // arena daha hızlı dönüyor
-
-    ctx.save();
-    ctx.translate(centerX(),centerY());
-    ctx.rotate(rotation);
-
-    ctx.beginPath();
-    ctx.arc(0,0,arenaRadius,0.6,Math.PI*2-0.6);
-    ctx.strokeStyle="#00ffff";
-    ctx.lineWidth=6;
-    ctx.stroke();
-
-    ctx.restore();
+// --- DRAW ARENA ---
+function drawArena() {
+  rotation += 0.015;
+  ctx.save();
+  ctx.translate(CX(), CY());
+  ctx.rotate(rotation);
+  ctx.beginPath();
+  ctx.arc(0, 0, arenaRadius, 0.5, Math.PI*2 - 0.5);
+  ctx.strokeStyle = "#00ffff";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  ctx.restore();
 }
 
-function update(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+// --- UPDATE ---
+function update() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    drawArena();
+  drawArena();
 
-    for(let i=0;i<particles.length;i++){
-        let p=particles[i];
+  for (let i = 0; i < particles.length; i++) {
+    let p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
 
-        p.x+=p.vx;
-        p.y+=p.vy;
+    let dx = p.x - CX();
+    let dy = p.y - CY();
+    let d = Math.sqrt(dx*dx + dy*dy);
 
-        let dx=p.x-centerX();
-        let dy=p.y-centerY();
-        let dist=Math.sqrt(dx*dx+dy*dy);
-
-        if(dist+p.r>arenaRadius){
-            let angle=Math.atan2(dy,dx)-rotation;
-
-            // boşluk alanı
-            if(angle>-0.6 && angle<0.6){
-                eliminatedFlags.push(p.flag);
-                particles.splice(i,1);
-                eliminatedDiv.innerHTML=eliminatedFlags.join(" ");
-                i--;
-                continue;
-            }
-
-            let nx=dx/dist;
-            let ny=dy/dist;
-            let dot=p.vx*nx+p.vy*ny;
-            p.vx-=2*dot*nx;
-            p.vy-=2*dot*ny;
-        }
-
-        // çarpışma
-        for(let j=i+1;j<particles.length;j++){
-            let p2=particles[j];
-            let dx=p2.x-p.x;
-            let dy=p2.y-p.y;
-            let d=Math.sqrt(dx*dx+dy*dy);
-
-            if(d<p.r+p2.r){
-                let nx=dx/d;
-                let ny=dy/d;
-                let pDot=p.vx*nx+p.vy*ny;
-                let p2Dot=p2.vx*nx+p2.vy*ny;
-                p.vx+= (p2Dot-pDot)*nx;
-                p.vy+= (p2Dot-pDot)*ny;
-                p2.vx+= (pDot-p2Dot)*nx;
-                p2.vy+= (pDot-p2Dot)*ny;
-            }
-        }
-
-        ctx.font="28px Arial";
-        ctx.textAlign="center";
-        ctx.textBaseline="middle";
-        ctx.fillText(p.flag,p.x,p.y);
+    if (d + p.r > arenaRadius) {
+      let angle = Math.atan2(dy,dx) - rotation;
+      if (angle > -0.5 && angle < 0.5) {
+        eliminated.push(p.code);
+        particles.splice(i,1);
+        document.getElementById("eliminated").innerText = eliminated.join(" ");
+        i--;
+        continue;
+      }
+      let nx = dx/d;
+      let ny = dy/d;
+      let dot = p.vx*nx + p.vy*ny;
+      p.vx -= 2*dot*nx;
+      p.vy -= 2*dot*ny;
     }
 
-    requestAnimationFrame(update);
+    for (let j = i+1; j < particles.length; j++) {
+      let p2 = particles[j];
+      let dx2 = p2.x - p.x;
+      let dy2 = p2.y - p.y;
+      let dist = Math.sqrt(dx2*dx2 + dy2*dy2);
+
+      if (dist < p.r + p2.r) {
+        let nx = dx2/dist;
+        let ny = dy2/dist;
+        let pDot = p.vx*nx + p.vy*ny;
+        let p2Dot = p2.vx*nx + p2.vy*ny;
+        p.vx += (p2Dot - pDot)*nx;
+        p.vy += (p2Dot - pDot)*ny;
+        p2.vx += (pDot - p2Dot)*nx;
+        p2.vy += (pDot - p2Dot)*ny;
+      }
+    }
+
+    ctx.font = "28px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    let emoji = String.fromCodePoint(...[0x1F1E6 + flags.indexOf(p.code.substring(0,2).toUpperCase())]); 
+    ctx.fillText(emoji, p.x, p.y);
+  }
+
+  requestAnimationFrame(update);
 }
+
 update();
 
 </script>
