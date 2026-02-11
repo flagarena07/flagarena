@@ -7,36 +7,79 @@
 body{
   margin:0;
   overflow:hidden;
-  background:#0f172a;
-  font-family:Arial;
+  background:#0b1220;
+  font-family:Arial, sans-serif;
   color:white;
 }
-canvas{
-  display:block;
-}
-#countdown, #winner{
+
+canvas{display:block;}
+
+#countdown,#winner{
   position:absolute;
   left:50%;
   transform:translateX(-50%);
   font-weight:bold;
   text-align:center;
 }
-#countdown{
-  top:40%;
-  font-size:80px;
+
+#countdown{top:40%;font-size:80px;}
+#winner{top:45%;font-size:48px;display:none;}
+
+#eliminated{
+  position:absolute;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  width:80%;
+  gap:6px;
 }
-#winner{
-  top:45%;
-  font-size:50px;
-  display:none;
+
+#topwins{
+  position:absolute;
+  top:20px;
+  right:20px;
+  background:rgba(0,0,0,0.6);
+  padding:15px;
+  border-radius:10px;
+  font-size:16px;
+}
+
+#topwins h3{
+  margin:0 0 10px 0;
+  font-size:18px;
+  text-align:center;
+}
+
+.bg-text{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:140px;
+  font-weight:900;
+  letter-spacing:15px;
+  color:rgba(255,255,255,0.04);
+  pointer-events:none;
 }
 </style>
 </head>
 <body>
 
+<div class="bg-text">FLAG ARENA</div>
+
 <canvas id="arena"></canvas>
+
 <div id="countdown"></div>
 <div id="winner"></div>
+<div id="eliminated"></div>
+
+<div id="topwins">
+  <h3>TOP WINS</h3>
+  <div id="toplist"></div>
+</div>
 
 <script>
 
@@ -50,8 +93,8 @@ function resize(){
 resize();
 window.addEventListener("resize",resize);
 
-function CX(){ return canvas.width/2 }
-function CY(){ return canvas.height/2 }
+function CX(){return canvas.width/2}
+function CY(){return canvas.height/2}
 
 let arenaRadius=Math.min(window.innerWidth,window.innerHeight)/3;
 let rotation=0;
@@ -66,6 +109,8 @@ const countryCodes=[
 
 let particles=[];
 let images={};
+let eliminatedList=[];
+let wins={};
 
 function preloadImages(callback){
   let loaded=0;
@@ -84,17 +129,20 @@ function preloadImages(callback){
 
 function initGame(){
   particles=[];
-  gameOver=false;
+  eliminatedList=[];
+  document.getElementById("eliminated").innerHTML="";
   document.getElementById("winner").style.display="none";
+  gameOver=false;
+  gameStarted=false;
 
   countryCodes.forEach(code=>{
     particles.push({
       code:code,
       x:CX()+(Math.random()-0.5)*200,
       y:CY()+(Math.random()-0.5)*200,
-      vx:(Math.random()-0.5)*8,
-      vy:(Math.random()-0.5)*8,
-      r:20
+      vx:(Math.random()-0.5)*20, // 5x hız
+      vy:(Math.random()-0.5)*20,
+      r:22
     });
   });
 
@@ -118,19 +166,31 @@ function startCountdown(){
 }
 
 function drawArena(){
-  rotation+=0.025;
+  rotation+=0.07; // daha hızlı dönüyor
 
   ctx.save();
   ctx.translate(CX(),CY());
   ctx.rotate(rotation);
 
   ctx.beginPath();
-  ctx.arc(0,0,arenaRadius,0.7,Math.PI*2-0.7);
+  ctx.arc(0,0,arenaRadius,0.6,Math.PI*2-0.6);
   ctx.strokeStyle="#22d3ee";
   ctx.lineWidth=6;
   ctx.stroke();
 
   ctx.restore();
+}
+
+function updateTopWins(){
+  const sorted=Object.entries(wins)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,3);
+
+  const list=document.getElementById("toplist");
+  list.innerHTML="";
+  sorted.forEach((item,i)=>{
+    list.innerHTML+=`${i+1}. ${item[0].toUpperCase()} - ${item[1]}<br>`;
+  });
 }
 
 function update(){
@@ -164,7 +224,13 @@ function update(){
       while(angle<-Math.PI) angle+=Math.PI*2;
       while(angle>Math.PI) angle-=Math.PI*2;
 
-      if(angle>-0.7 && angle<0.7){
+      if(angle>-0.6 && angle<0.6){
+        eliminatedList.push(p.code);
+        const img=document.createElement("img");
+        img.src=images[p.code].src;
+        img.width=24;
+        document.getElementById("eliminated").appendChild(img);
+
         particles.splice(i,1);
         i--;
         continue;
@@ -202,8 +268,12 @@ function update(){
     gameOver=true;
     gameStarted=false;
 
+    const winner=particles[0].code;
+    wins[winner]=(wins[winner]||0)+1;
+    updateTopWins();
+
     document.getElementById("winner").innerText=
-      "WINNER: "+particles[0].code.toUpperCase();
+      "WINNER: "+winner.toUpperCase();
     document.getElementById("winner").style.display="block";
 
     setTimeout(()=>{
