@@ -1,119 +1,217 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-
-// --- CONFIG ---
-const FLAG_COUNT = 195; // expected total
-const TOP_LIMIT = 10;
-const SPIN_SPEED = 0.08; // constant speed (no slow down)
-const RADIUS = 220;
-
-// Generate mock 195 country data (replace with real list if needed)
-const countries = Array.from({ length: FLAG_COUNT }).map((_, i) => ({
-  name: `Country ${i + 1}`,
-  code: `C${i + 1}`,
-  flag: `https://flagcdn.com/w80/${"us"}.png`, // replace with dynamic ISO codes if available
-}));
-
-export default function FlagArena() {
-  const [angle, setAngle] = useState(0);
-  const [active, setActive] = useState(true);
-  const [wins, setWins] = useState([]);
-  const requestRef = useRef();
-
-  const animate = () => {
-    setAngle((prev) => prev + SPIN_SPEED);
-    requestRef.current = requestAnimationFrame(animate);
-  };
-
-  useEffect(() => {
-    if (active) {
-      requestRef.current = requestAnimationFrame(animate);
-    }
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [active]);
-
-  const pickWinner = () => {
-    const random = countries[Math.floor(Math.random() * countries.length)];
-    setWins((prev) => {
-      const updated = [random, ...prev];
-      return updated.slice(0, TOP_LIMIT);
-    });
-  };
-
-  return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Transparent Background Elements */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="text-[120px] font-bold opacity-10 tracking-widest absolute">
-          FLAG ARENA
-        </div>
-        <img
-          src="https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg"
-          alt="world"
-          className="absolute w-[800px] opacity-10"
-        />
-      </div>
-
-      <h1 className="text-4xl font-bold mb-8 z-10 text-center">
-        FLAG ARENA
-      </h1>
-
-      {/* Circle */}
-      <div
-        className="relative z-10"
-        style={{ width: RADIUS * 2, height: RADIUS * 2 }}
-      >
-        {countries.map((country, index) => {
-          const theta = (index / countries.length) * 2 * Math.PI + angle;
-          const x = RADIUS + RADIUS * Math.cos(theta) - 20;
-          const y = RADIUS + RADIUS * Math.sin(theta) - 20;
-          return (
-            <div
-              key={index}
-              className="absolute flex flex-col items-center"
-              style={{ left: x, top: y }}
-            >
-              <img
-                src={country.flag}
-                alt={country.name}
-                className="w-8 h-6 object-cover"
-              />
-              <span className="text-[10px] mt-1 text-center w-16 truncate">
-                {country.name}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      <button
-        onClick={pickWinner}
-        className="mt-8 px-6 py-2 bg-yellow-500 text-black font-semibold rounded-2xl shadow-lg z-10"
-      >
-        Pick Winner
-      </button>
-
-      {/* TOP WINS */}
-      <div className="mt-10 w-80 z-10">
-        <h2 className="text-xl font-semibold mb-4 text-center">Top Wins</h2>
-        <ul className="space-y-2">
-          {wins.map((country, idx) => (
-            <li
-              key={idx}
-              className="flex items-center justify-between bg-gray-800 px-3 py-2 rounded-xl"
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-bold">#{idx + 1}</span>
-                <img
-                  src={country.flag}
-                  alt={country.name}
-                  className="w-6 h-4"
-                />
-                <span>{country.name}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>FLAG ARENA</title>
+<style>
+body{
+    margin:0;
+    background:#0e0e0e;
+    font-family:Arial, Helvetica, sans-serif;
+    overflow:hidden;
+    color:white;
 }
+
+#backgroundText{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-size:120px;
+    font-weight:900;
+    color:white;
+    opacity:0.05;
+    pointer-events:none;
+    white-space:nowrap;
+}
+
+#arena{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:600px;
+    height:600px;
+    border-radius:50%;
+    border:6px solid #ffffff22;
+}
+
+.flag{
+    position:absolute;
+    width:70px;
+    text-align:center;
+    font-size:12px;
+}
+
+.flag img{
+    width:60px;
+    height:40px;
+    border-radius:4px;
+}
+
+#countdown{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-size:100px;
+    font-weight:bold;
+}
+
+#winner{
+    position:absolute;
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:28px;
+    font-weight:bold;
+}
+
+#topWins{
+    position:absolute;
+    right:20px;
+    top:20px;
+    width:220px;
+}
+
+#topWins h2{
+    margin:0 0 10px 0;
+    text-align:center;
+}
+
+.winItem{
+    display:flex;
+    align-items:center;
+    margin-bottom:6px;
+    font-size:14px;
+}
+
+.winItem img{
+    width:30px;
+    height:20px;
+    margin-right:8px;
+}
+</style>
+</head>
+<body>
+
+<div id="backgroundText">FLAG ARENA</div>
+<div id="winner"></div>
+<div id="arena"></div>
+<div id="countdown"></div>
+
+<div id="topWins">
+<h2>TOP 10 WINS</h2>
+<div id="winsList"></div>
+</div>
+
+<script>
+
+const countries = [
+"tr","us","de","fr","it","es","br","ar","jp","cn",
+"ru","gb","ca","mx","kr","sa","au","in","nl","ch",
+"se","no","fi","dk","pl","be","gr","pt","ua","ro",
+"bg","cz","hu","at","ie","il","eg","za","th","id"
+];
+
+// 40 örnek koydum. İstersen 195 ISO kod listesi ekleyebilirim.
+
+const arena = document.getElementById("arena");
+const countdownEl = document.getElementById("countdown");
+const winnerEl = document.getElementById("winner");
+const winsList = document.getElementById("winsList");
+
+let angle = 0;
+let speed = 0.05; // Sabit hızlı
+let flags = [];
+let wins = {};
+
+function createFlags(){
+    arena.innerHTML="";
+    flags=[];
+    const radius = 250;
+    const center = 300;
+
+    countries.forEach((code,i)=>{
+        const div = document.createElement("div");
+        div.className="flag";
+        div.innerHTML=`
+            <img src="https://flagcdn.com/w80/${code}.png">
+            <div>${code.toUpperCase()}</div>
+        `;
+        arena.appendChild(div);
+
+        flags.push({
+            el:div,
+            angle:(2*Math.PI/countries.length)*i
+        });
+    });
+}
+
+function updatePositions(){
+    const radius=250;
+    const center=300;
+
+    flags.forEach(f=>{
+        const x=center + radius*Math.cos(f.angle) - 35;
+        const y=center + radius*Math.sin(f.angle) - 25;
+        f.el.style.left=x+"px";
+        f.el.style.top=y+"px";
+        f.angle += speed;
+    });
+
+    requestAnimationFrame(updatePositions);
+}
+
+function startCountdown(){
+    let count=10;
+    countdownEl.innerText=count;
+
+    const interval=setInterval(()=>{
+        count--;
+        countdownEl.innerText=count;
+
+        if(count===0){
+            clearInterval(interval);
+            countdownEl.innerText="";
+            startGame();
+        }
+    },1000);
+}
+
+function startGame(){
+    setTimeout(()=>{
+        const winner = countries[Math.floor(Math.random()*countries.length)];
+        winnerEl.innerText="🏆 Winner: "+winner.toUpperCase();
+
+        if(!wins[winner]) wins[winner]=0;
+        wins[winner]++;
+        updateTopWins();
+
+    },5000);
+}
+
+function updateTopWins(){
+    winsList.innerHTML="";
+    const sorted = Object.entries(wins)
+        .sort((a,b)=>b[1]-a[1])
+        .slice(0,10);
+
+    sorted.forEach(([code,count],i)=>{
+        const div=document.createElement("div");
+        div.className="winItem";
+        div.innerHTML=`
+            <img src="https://flagcdn.com/w40/${code}.png">
+            ${i+1}. ${code.toUpperCase()} - ${count}
+        `;
+        winsList.appendChild(div);
+    });
+}
+
+createFlags();
+updatePositions();
+startCountdown();
+
+</script>
+</body>
+</html>
