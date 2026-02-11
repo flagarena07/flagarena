@@ -1,36 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Flag Arena</title>
-  <style>
-    body {
-      margin: 0;
-      background: black;
-      color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
-    h1 {
-      margin-top: 40px;
-      font-size: 48px;
-    }
-    iframe {
-      margin-top: 30px;
-      width: 90%;
-      height: 500px;
-      border: none;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Flag Arena</title>
+<style>
+body {
+  margin: 0;
+  background: black;
+  color: white;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+
+#arenaCanvas {
+  display: block;
+  margin: auto;
+  background: #000;
+}
+
+#eliminated {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: #111;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 5px;
+  font-size: 10px;
+}
+
+.flagBox {
+  text-align: center;
+  margin: 2px 4px;
+}
+
+.flagEmoji {
+  font-size: 16px;
+}
+
+.flagName {
+  font-size: 8px;
+}
+</style>
 </head>
 <body>
-  <h1>FLAG ARENA</h1>
-  <p>Yarışmaların Heyecanı Burada!</p>
 
-  <iframe 
-    src="https://www.youtube.com/embed/live_stream?channel=KANAL_ID"
-    allowfullscreen>
-  </iframe>
+<canvas id="arenaCanvas"></canvas>
+<div id="eliminated"></div>
+
+<script>
+const canvas = document.getElementById("arenaCanvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight - 100;
+
+let centerX = canvas.width / 2;
+let centerY = canvas.height / 2;
+let radius = Math.min(canvas.width, canvas.height) / 2 - 50;
+let shrinkSpeed = 0.02;
+
+const eliminatedDiv = document.getElementById("eliminated");
+
+const countries = Array.from({length:195}, (_,i)=>({
+  name: "COUNTRY " + (i+1),
+  emoji: "🏳️",
+  x: centerX + Math.random()*200-100,
+  y: centerY + Math.random()*200-100,
+  dx: (Math.random()-0.5)*2,
+  dy: (Math.random()-0.5)*2,
+  eliminated:false
+}));
+
+function drawArena(){
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI*2);
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function drawFlags(){
+  countries.forEach(c=>{
+    if(c.eliminated) return;
+    ctx.font = "16px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(c.emoji, c.x, c.y);
+    ctx.font = "8px Arial";
+    ctx.fillText(c.name, c.x, c.y+10);
+  });
+}
+
+function update(){
+  radius -= shrinkSpeed;
+
+  countries.forEach(c=>{
+    if(c.eliminated) return;
+
+    c.x += c.dx;
+    c.y += c.dy;
+
+    let dist = Math.sqrt((c.x-centerX)**2 + (c.y-centerY)**2);
+
+    if(dist > radius){
+      c.eliminated = true;
+      addEliminated(c);
+    }
+  });
+
+  let alive = countries.filter(c=>!c.eliminated);
+  if(alive.length === 1){
+    setTimeout(resetGame, 3000);
+  }
+}
+
+function addEliminated(country){
+  const box = document.createElement("div");
+  box.className="flagBox";
+  box.innerHTML = `<div class="flagEmoji">${country.emoji}</div>
+                   <div class="flagName">${country.name}</div>`;
+  eliminatedDiv.appendChild(box);
+}
+
+function resetGame(){
+  location.reload();
+}
+
+function animate(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawArena();
+  drawFlags();
+  update();
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
 
 </body>
 </html>
