@@ -58,8 +58,11 @@ canvas.height = window.innerHeight - 100;
 
 let centerX = canvas.width / 2;
 let centerY = canvas.height / 2;
-let radius = Math.min(canvas.width, canvas.height) / 2 - 50;
+let radius = Math.min(canvas.width, canvas.height) / 2 - 80;
 let shrinkSpeed = 0.02;
+
+const gapSize = Math.PI / 8; // boşluk genişliği
+let gapAngle = Math.PI / 2;  // boşluğun konumu (aşağıda)
 
 const eliminatedDiv = document.getElementById("eliminated");
 
@@ -75,7 +78,7 @@ const countries = Array.from({length:195}, (_,i)=>({
 
 function drawArena(){
   ctx.beginPath();
-  ctx.arc(centerX, centerY, radius, 0, Math.PI*2);
+  ctx.arc(centerX, centerY, radius, gapAngle + gapSize/2, gapAngle - gapSize/2 + Math.PI*2);
   ctx.strokeStyle = "white";
   ctx.lineWidth = 3;
   ctx.stroke();
@@ -101,11 +104,32 @@ function update(){
     c.x += c.dx;
     c.y += c.dy;
 
-    let dist = Math.sqrt((c.x-centerX)**2 + (c.y-centerY)**2);
+    let dx = c.x - centerX;
+    let dy = c.y - centerY;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+
+    let angle = Math.atan2(dy, dx);
+    if(angle < 0) angle += Math.PI*2;
+
+    let gapStart = gapAngle - gapSize/2;
+    let gapEnd = gapAngle + gapSize/2;
 
     if(dist > radius){
-      c.eliminated = true;
-      addEliminated(c);
+      if(angle > gapStart && angle < gapEnd){
+        // boşluktan çıktı → elendi
+        c.eliminated = true;
+        addEliminated(c);
+      } else {
+        // duvara çarptı → sek
+        let normalX = dx/dist;
+        let normalY = dy/dist;
+        let dot = c.dx*normalX + c.dy*normalY;
+        c.dx -= 2*dot*normalX;
+        c.dy -= 2*dot*normalY;
+
+        c.x = centerX + normalX * (radius-2);
+        c.y = centerY + normalY * (radius-2);
+      }
     }
   });
 
@@ -138,5 +162,3 @@ function animate(){
 animate();
 </script>
 
-</body>
-</html>
