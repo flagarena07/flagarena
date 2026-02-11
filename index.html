@@ -1,104 +1,50 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flag Arena</title>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-
 <style>
-body{
-margin:0;
-overflow:hidden;
-background:#ffffff;
-font-family:Arial, sans-serif;
-}
-
-canvas{
-display:block;
-}
-
+body{margin:0;overflow:hidden;background:#fff;font-family:Arial;}
 #bgTitle{
-position:absolute;
-top:50%;
-left:50%;
+position:absolute;top:50%;left:50%;
 transform:translate(-50%,-50%);
-font-size:120px;
-font-weight:900;
+font-size:120px;font-weight:900;
 color:rgba(0,0,0,0.05);
 pointer-events:none;
-white-space:nowrap;
 }
-
-#winner{
-position:absolute;
-top:20px;
-left:50%;
-transform:translateX(-50%);
-font-size:32px;
-font-weight:bold;
-}
-
 #countdown{
-position:absolute;
-top:50%;
-left:50%;
+position:absolute;top:50%;left:50%;
 transform:translate(-50%,-50%);
-font-size:80px;
-font-weight:bold;
+font-size:80px;font-weight:bold;
 }
-
-#topWins{
-position:absolute;
-top:20px;
-right:20px;
-background:white;
-padding:15px;
-border-radius:10px;
-box-shadow:0 0 10px rgba(0,0,0,0.2);
-width:220px;
-}
-
-#topWins h3{
-margin-top:0;
-text-align:center;
-}
-
-.topItem{
-display:flex;
-align-items:center;
-margin-bottom:5px;
-font-size:14px;
-}
-
-.topItem img{
-width:20px;
-height:15px;
-margin-right:5px;
+#winner{
+position:absolute;top:20px;left:50%;
+transform:translateX(-50%);
+font-size:30px;font-weight:bold;
 }
 </style>
 </head>
 <body>
 
 <div id="bgTitle">FLAG ARENA</div>
-<div id="winner"></div>
 <div id="countdown">10</div>
-
-<div id="topWins">
-<h3>TOP WINS</h3>
-<div id="topList"></div>
-</div>
+<div id="winner"></div>
 
 <script>
-
-const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
+const {Engine,Render,Runner,World,Bodies,Body,Composite,Events} = Matter;
 
 const engine = Engine.create();
+engine.gravity.y = 0;
+
 const world = engine.world;
 
 const width = window.innerWidth;
 const height = window.innerHeight;
+const centerX = width/2;
+const centerY = height/2;
+const radius = 280;
+const gapSize = 50;
 
 const render = Render.create({
 element: document.body,
@@ -114,45 +60,59 @@ background:'transparent'
 Render.run(render);
 Runner.run(Runner.create(), engine);
 
-const centerX = width/2;
-const centerY = height/2;
-const radius = 300;
-const gapAngle = 40;
-
 let flags=[];
-let wins={};
+let arenaParts=[];
+let arena;
 let gameStarted=false;
 
-const countries = [
+const countries=[
 "tr","us","de","fr","br","gb","it","es","ru","jp",
 "cn","in","kr","mx","ar","nl","se","ch","sa","au",
 "ca","be","pl","no","dk","fi","pt","gr","hu","cz",
-"ua","ro","sk","bg","rs","hr","cl","co","pe","ve",
-"th","id","my","ph","za","eg","ma","dz","ng","ke"
+"ua","ro","sk","bg","rs","hr","cl","co","pe","ve"
 ];
 
 function createArena(){
-for(let i=0;i<360-gapAngle;i+=4){
-let angle = i * Math.PI/180;
-let x = centerX + radius*Math.cos(angle);
-let y = centerY + radius*Math.sin(angle);
+arena = Composite.create();
 
-let wall = Bodies.rectangle(x,y,10,20,{
+for(let i=0;i<360;i+=4){
+if(i>180-gapSize/2 && i<180+gapSize/2) continue;
+
+let angle=i*Math.PI/180;
+let x=centerX+radius*Math.cos(angle);
+let y=centerY+radius*Math.sin(angle);
+
+let wall=Bodies.rectangle(x,y,10,20,{
 isStatic:true,
 angle:angle,
 render:{fillStyle:"#000"}
 });
 
-World.add(world, wall);
+Composite.add(arena, wall);
+arenaParts.push(wall);
 }
+
+World.add(world, arena);
+}
+
+function rotateArena(){
+arenaParts.forEach(part=>{
+Body.rotate(part,0.01);
+let dx=part.position.x-centerX;
+let dy=part.position.y-centerY;
+let angle=Math.atan2(dy,dx)+0.01;
+let x=centerX+radius*Math.cos(angle);
+let y=centerY+radius*Math.sin(angle);
+Body.setPosition(part,{x,y});
+});
 }
 
 function createFlags(){
-countries.forEach((code,i)=>{
-let x = centerX + (Math.random()*200-100);
-let y = centerY + (Math.random()*200-100);
+countries.forEach(code=>{
+let x=centerX+(Math.random()*200-100);
+let y=centerY+(Math.random()*200-100);
 
-let body = Bodies.circle(x,y,20,{
+let body=Bodies.circle(x,y,18,{
 restitution:1,
 friction:0,
 frictionAir:0,
@@ -166,26 +126,30 @@ yScale:0.5
 });
 
 Body.setVelocity(body,{
-x:(Math.random()-0.5)*10,
-y:(Math.random()-0.5)*10
+x:(Math.random()-0.5)*12,
+y:(Math.random()-0.5)*12
 });
 
 body.country=code;
 flags.push(body);
-World.add(world, body);
+World.add(world,body);
 });
 }
 
 function startCountdown(){
 let count=10;
 const cd=document.getElementById("countdown");
+cd.innerText=count;
+
 let interval=setInterval(()=>{
 count--;
 cd.innerText=count;
 if(count===0){
 clearInterval(interval);
+setTimeout(()=>{
 cd.style.display="none";
 startGame();
+},500);
 }
 },1000);
 }
@@ -194,8 +158,12 @@ function startGame(){
 gameStarted=true;
 }
 
-Events.on(engine,'afterUpdate',()=>{
+Events.on(engine,"beforeUpdate",()=>{
+if(!gameStarted) return;
+rotateArena();
+});
 
+Events.on(engine,"afterUpdate",()=>{
 if(!gameStarted) return;
 
 flags.forEach(flag=>{
@@ -203,54 +171,22 @@ let dx=flag.position.x-centerX;
 let dy=flag.position.y-centerY;
 let dist=Math.sqrt(dx*dx+dy*dy);
 
-if(dist>radius+30){
-eliminate(flag);
+if(dist>radius+25){
+World.remove(world,flag);
+flags=flags.filter(f=>f!==flag);
 }
 });
 
 if(flags.length===1){
-declareWinner(flags[0]);
-}
-});
-
-function eliminate(flag){
-World.remove(world,flag);
-flags=flags.filter(f=>f!==flag);
-}
-
-function declareWinner(flag){
+document.getElementById("winner").innerText="Winner: "+flags[0].country.toUpperCase();
+setTimeout(()=>location.reload(),5000);
 gameStarted=false;
-document.getElementById("winner").innerText="Kazanan: "+flag.country.toUpperCase();
-
-wins[flag.country]=(wins[flag.country]||0)+1;
-updateTopWins();
-
-setTimeout(()=>{
-location.reload();
-},5000);
 }
-
-function updateTopWins(){
-let sorted=Object.entries(wins)
-.sort((a,b)=>b[1]-a[1])
-.slice(0,10);
-
-let html="";
-sorted.forEach(item=>{
-html+=`
-<div class="topItem">
-<img src="https://flagcdn.com/w40/${item[0]}.png">
-${item[1]}
-</div>
-`;
 });
-document.getElementById("topList").innerHTML=html;
-}
 
 createArena();
 createFlags();
 startCountdown();
-
 </script>
 </body>
 </html>
