@@ -1,45 +1,65 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html>
 <head>
 <meta charset="UTF-8">
 <title>FLAG ARENA</title>
 <style>
 body{
-    margin:0;
-    background:#0e0e14;
-    overflow:hidden;
-    font-family:Arial, sans-serif;
+margin:0;
+background:#0c0f1a;
+overflow:hidden;
+font-family:Arial, sans-serif;
+color:white;
 }
 #bgText{
-    position:fixed;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-size:120px;
-    font-weight:900;
-    opacity:0.05;
-    white-space:nowrap;
-    pointer-events:none;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+font-size:130px;
+font-weight:900;
+opacity:0.05;
+pointer-events:none;
+white-space:nowrap;
 }
 #countdown{
-    position:fixed;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-size:80px;
-    font-weight:bold;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+font-size:90px;
+font-weight:bold;
 }
 #winner{
-    position:fixed;
-    top:20px;
-    left:50%;
-    transform:translateX(-50%);
-    font-size:30px;
-    font-weight:bold;
+position:fixed;
+top:20px;
+left:50%;
+transform:translateX(-50%);
+font-size:30px;
+font-weight:bold;
+}
+#topWins{
+position:fixed;
+top:20px;
+right:20px;
+width:200px;
+}
+#topWins h3{
+margin:0 0 10px 0;
+}
+.topItem{
+display:flex;
+align-items:center;
+margin-bottom:6px;
+font-size:14px;
+}
+.topItem img{
+width:25px;
+margin-right:6px;
 }
 canvas{
-    display:block;
-    margin:auto;
+display:block;
+margin:auto;
 }
 </style>
 </head>
@@ -48,194 +68,208 @@ canvas{
 <div id="bgText">FLAG ARENA</div>
 <div id="countdown"></div>
 <div id="winner"></div>
+
+<div id="topWins">
+<h3>TOP WINS</h3>
+<div id="topList"></div>
+</div>
+
 <canvas id="canvas"></canvas>
 
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-canvas.width = 900;
-canvas.height = 700;
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+canvas.width=1000;
+canvas.height=800;
 
-const centerX = canvas.width/2;
-const centerY = canvas.height/2;
-const arenaRadius = 280;
+const cx=canvas.width/2;
+const cy=canvas.height/2;
+const R=320;
 
-const gapSize = Math.PI / 6; // boşluk genişliği
-let arenaRotation = 0;
+const GAP=Math.PI/7;
+let arenaAngle=0;
 
-const countryCodes = [
-"tr","us","de","fr","it","es","br","ar","jp","cn",
+let flags=[];
+let eliminated=[];
+let wins={};
+let running=false;
+let winnerDone=false;
+
+const countries=[ "tr","us","de","fr","it","es","br","ar","jp","cn",
 "ru","gb","ca","mx","kr","sa","au","in","nl","ch",
-"se","no","fi","dk","pl","be","gr","pt","ua","ro"
+"se","no","fi","dk","pl","be","gr","pt","ua","ro",
+"cz","at","hu","bg","rs","hr","sk","si","ee","lv",
+"lt","ie","is","cl","co","pe","ve","za","eg","ma"
 ];
 
-let flags = [];
-let eliminated = [];
-let images = {};
-let gameRunning = false;
-let winnerDeclared = false;
+let images={};
 
-class Flag{
-    constructor(code){
-        this.code = code;
-        this.radius = 20;
-        const angle = Math.random()*Math.PI*2;
-        const r = Math.random()*(arenaRadius-40);
-        this.x = centerX + Math.cos(angle)*r;
-        this.y = centerY + Math.sin(angle)*r;
+class Ball{
+constructor(code){
+this.code=code;
+this.r=18;
 
-        const speedAngle = Math.random()*Math.PI*2;
-        const speed = 5 + Math.random()*3; // HIZ ARTTIRILDI
-        this.vx = Math.cos(speedAngle)*speed;
-        this.vy = Math.sin(speedAngle)*speed;
+let a=Math.random()*Math.PI*2;
+let rad=Math.random()*(R-60);
+this.x=cx+Math.cos(a)*rad;
+this.y=cy+Math.sin(a)*rad;
 
-        this.alive = true;
-    }
+let sp=10+Math.random()*4; // HIZ ARTIRILDI
+let ang=Math.random()*Math.PI*2;
+this.vx=Math.cos(ang)*sp;
+this.vy=Math.sin(ang)*sp;
 
-    update(){
-        if(!this.alive || !gameRunning) return;
+this.alive=true;
+}
+update(){
+if(!this.alive||!running)return;
 
-        this.x += this.vx;
-        this.y += this.vy;
+this.x+=this.vx;
+this.y+=this.vy;
 
-        const dx = this.x - centerX;
-        const dy = this.y - centerY;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        const angle = Math.atan2(dy,dx) - arenaRotation;
+let dx=this.x-cx;
+let dy=this.y-cy;
+let dist=Math.sqrt(dx*dx+dy*dy);
+let ang=Math.atan2(dy,dx)-arenaAngle;
 
-        // Çembere değdi mi?
-        if(dist + this.radius > arenaRadius){
+if(dist+this.r>=R){
 
-            // Eğer boşluk bölgesindeyse elensin
-            if(angle > -gapSize/2 && angle < gapSize/2){
-                this.alive = false;
-                eliminated.push(this);
-                return;
-            }
+if(ang>-GAP/2 && ang<GAP/2){
+this.alive=false;
+eliminated.push(this);
+return;
+}
 
-            // Değilse sektir
-            const nx = dx/dist;
-            const ny = dy/dist;
-            const dot = this.vx*nx + this.vy*ny;
-            this.vx -= 2*dot*nx;
-            this.vy -= 2*dot*ny;
-        }
-    }
+let nx=dx/dist;
+let ny=dy/dist;
+let dot=this.vx*nx+this.vy*ny;
+this.vx-=2*dot*nx;
+this.vy-=2*dot*ny;
 
-    draw(){
-        if(!this.alive) return;
-        ctx.drawImage(images[this.code], this.x-18, this.y-12, 36, 24);
-        ctx.fillStyle="white";
-        ctx.font="10px Arial";
-        ctx.textAlign="center";
-        ctx.fillText(this.code.toUpperCase(), this.x, this.y+20);
-    }
+let boost=1.05; // duvara çarpınca hız kaybı olmasın
+this.vx*=boost;
+this.vy*=boost;
+}
+}
+draw(){
+if(!this.alive)return;
+ctx.drawImage(images[this.code],this.x-18,this.y-12,36,24);
+}
 }
 
 function drawArena(){
-    ctx.save();
-    ctx.translate(centerX,centerY);
-    ctx.rotate(arenaRotation);
-
-    ctx.beginPath();
-    ctx.arc(0,0,arenaRadius, gapSize/2, Math.PI*2-gapSize/2);
-    ctx.lineWidth=4;
-    ctx.strokeStyle="white";
-    ctx.stroke();
-
-    ctx.restore();
+ctx.save();
+ctx.translate(cx,cy);
+ctx.rotate(arenaAngle);
+ctx.beginPath();
+ctx.arc(0,0,R,GAP/2,Math.PI*2-GAP/2);
+ctx.lineWidth=5;
+ctx.strokeStyle="white";
+ctx.stroke();
+ctx.restore();
 }
 
 function drawEliminated(){
-    const startY = canvas.height - 120;
-    const perRow = 15;
+let perRow=18;
+let startY=canvas.height-150;
 
-    eliminated.forEach((f,i)=>{
-        const col = i % perRow;
-        const row = Math.floor(i/perRow);
-        const x = 40 + col*55;
-        const y = startY + row*40;
-        ctx.drawImage(images[f.code], x, y, 40, 25);
-    });
+eliminated.forEach((f,i)=>{
+let col=i%perRow;
+let row=Math.floor(i/perRow);
+let x=30+col*50;
+let y=startY+row*40;
+ctx.drawImage(images[f.code],x,y,40,26);
+});
+}
+
+function updateTopWins(){
+let sorted=Object.entries(wins).sort((a,b)=>b[1]-a[1]).slice(0,10);
+let html="";
+sorted.forEach(item=>{
+html+=`<div class="topItem">
+<img src="https://flagcdn.com/w40/${item[0]}.png">
+${item[1]} wins
+</div>`;
+});
+document.getElementById("topList").innerHTML=html;
 }
 
 function animate(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    if(gameRunning){
-        arenaRotation += 0.03; // ÇEMBER DÖNÜŞ HIZI
-    }
+if(running) arenaAngle+=0.05; // ÇEMBER HIZLI DÖNER
 
-    drawArena();
+drawArena();
 
-    flags.forEach(f=>{
-        f.update();
-        f.draw();
-    });
+flags.forEach(f=>{
+f.update();
+f.draw();
+});
 
-    drawEliminated();
+drawEliminated();
 
-    const alive = flags.filter(f=>f.alive);
+let alive=flags.filter(f=>f.alive);
 
-    if(alive.length === 1 && gameRunning && !winnerDeclared){
-        winnerDeclared = true;
-        gameRunning = false;
-        document.getElementById("winner").innerText =
-        "🏆 Winner: " + alive[0].code.toUpperCase();
-        setTimeout(resetGame,3000);
-    }
-
-    requestAnimationFrame(animate);
+if(alive.length===1 && running && !winnerDone){
+winnerDone=true;
+running=false;
+let code=alive[0].code;
+document.getElementById("winner").innerText="🏆 "+code.toUpperCase()+" WINS!";
+wins[code]=(wins[code]||0)+1;
+updateTopWins();
+setTimeout(reset,3000);
 }
 
-function startCountdown(){
-    let count = 10;
-    const el = document.getElementById("countdown");
-    el.innerText = count;
-
-    const interval = setInterval(()=>{
-        count--;
-        el.innerText = count;
-        if(count <= 0){
-            clearInterval(interval);
-            el.innerText="";
-            gameRunning = true;
-        }
-    },1000);
+requestAnimationFrame(animate);
 }
 
-function resetGame(){
-    eliminated=[];
-    flags=[];
-    winnerDeclared=false;
-    document.getElementById("winner").innerText="";
-    initFlags();
-    startCountdown();
+function countdown(){
+let c=10;
+let el=document.getElementById("countdown");
+el.innerText=c;
+let i=setInterval(()=>{
+c--;
+el.innerText=c;
+if(c<=0){
+clearInterval(i);
+el.innerText="";
+running=true;
+}
+},1000);
 }
 
-function initFlags(){
-    countryCodes.forEach(code=>{
-        flags.push(new Flag(code));
-    });
+function reset(){
+eliminated=[];
+flags=[];
+winnerDone=false;
+document.getElementById("winner").innerText="";
+init();
+countdown();
 }
 
-function loadImages(callback){
-    let loaded=0;
-    countryCodes.forEach(code=>{
-        const img=new Image();
-        img.src=`https://flagcdn.com/w80/${code}.png`;
-        img.onload=()=>{
-            loaded++;
-            if(loaded===countryCodes.length) callback();
-        }
-        images[code]=img;
-    });
+function init(){
+countries.forEach(c=>{
+flags.push(new Ball(c));
+});
+}
+
+function loadImages(cb){
+let loaded=0;
+countries.forEach(c=>{
+let img=new Image();
+img.src=`https://flagcdn.com/w80/${c}.png`;
+img.onload=()=>{
+loaded++;
+if(loaded===countries.length) cb();
+}
+images[c]=img;
+});
 }
 
 loadImages(()=>{
-    initFlags();
-    startCountdown();
-    animate();
+init();
+countdown();
+animate();
 });
 </script>
 </body>
