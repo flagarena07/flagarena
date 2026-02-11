@@ -1,112 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Flag Arena</title>
+
+<style>
+body{
+  margin:0;
+  background:black;
+  color:white;
+  font-family:Arial, sans-serif;
+  overflow:hidden;
+}
+
+#title{
+  position:absolute;
+  top:20px;
+  width:100%;
+  text-align:center;
+  font-size:40px;
+  font-weight:bold;
+  letter-spacing:4px;
+}
+
+canvas{
+  display:block;
+  margin:auto;
+  margin-top:80px;
+  background:black;
+}
+
+#eliminatedList{
+  position:fixed;
+  right:30px;
+  top:120px;
+  width:220px;
+  max-height:75vh;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.eliminated-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+}
+
+.eliminated-item img{
+  width:20px;
+  height:14px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="title">FLAG ARENA</div>
+<canvas id="arena" width="800" height="800"></canvas>
+<div id="eliminatedList"></div>
+
 <script>
-const canvas = document.getElementById("arenaCanvas");
+
+const canvas = document.getElementById("arena");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight - 100;
+const centerX = canvas.width/2;
+const centerY = canvas.height/2;
 
-let centerX = canvas.width / 2;
-let centerY = canvas.height / 2;
-let radius = Math.min(canvas.width, canvas.height) / 2 - 80;
-let shrinkSpeed = 0.02;
+let radius = 320;
+let gapAngle = 0.6;
+let shrinkSpeed = 0.03;
 
-const gapSize = Math.PI / 8; // boşluk genişliği
-let gapAngle = Math.PI / 2;  // boşluğun konumu (aşağıda)
+let countries = [];
+let eliminated = [];
 
-const eliminatedDiv = document.getElementById("eliminated");
+// 195 adet oluştur (örnek flag kodları tekrar edebilir, performans için)
+const baseFlags = ["tr","us","de","fr","gb","it","es","br","ar","jp","cn","ru","ca","au","mx"];
+while(baseFlags.length < 195){
+  baseFlags.push(baseFlags[baseFlags.length % 15]);
+}
 
-const countries = Array.from({length:195}, (_,i)=>({
-  name: "COUNTRY " + (i+1),
-  emoji: "🏳️",
-  x: centerX + Math.random()*200-100,
-  y: centerY + Math.random()*200-100,
-  dx: (Math.random()-0.5)*2,
-  dy: (Math.random()-0.5)*2,
-  eliminated:false
-}));
+baseFlags.forEach(code=>{
+  countries.push({
+    code:code,
+    angle:Math.random()*Math.PI*2,
+    speed:0.04 + Math.random()*0.04 // hız artırıldı
+  });
+});
 
-function drawArena(){
+function drawCircle(){
   ctx.beginPath();
-  ctx.arc(centerX, centerY, radius, gapAngle + gapSize/2, gapAngle - gapSize/2 + Math.PI*2);
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 3;
+  ctx.arc(centerX,centerY,radius,0,Math.PI*2);
+  ctx.strokeStyle="white";
+  ctx.lineWidth=4;
+  ctx.stroke();
+
+  // boşluk
+  ctx.beginPath();
+  ctx.arc(centerX,centerY,radius,-gapAngle/2,gapAngle/2);
+  ctx.strokeStyle="black";
+  ctx.lineWidth=6;
   ctx.stroke();
 }
 
-function drawFlags(){
-  countries.forEach(c=>{
-    if(c.eliminated) return;
-    ctx.font = "16px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(c.emoji, c.x, c.y);
-    ctx.font = "8px Arial";
-    ctx.fillText(c.name, c.x, c.y+10);
+function updateEliminated(){
+  const list = document.getElementById("eliminatedList");
+  list.innerHTML="";
+  eliminated.slice().reverse().forEach(c=>{
+    const div = document.createElement("div");
+    div.className="eliminated-item";
+    div.innerHTML =
+      `<img src="https://flagcdn.com/w40/${c.code}.png">
+       ${c.code.toUpperCase()}`;
+    list.appendChild(div);
   });
-}
-
-function update(){
-  radius -= shrinkSpeed;
-
-  countries.forEach(c=>{
-    if(c.eliminated) return;
-
-    c.x += c.dx;
-    c.y += c.dy;
-
-    let dx = c.x - centerX;
-    let dy = c.y - centerY;
-    let dist = Math.sqrt(dx*dx + dy*dy);
-
-    let angle = Math.atan2(dy, dx);
-    if(angle < 0) angle += Math.PI*2;
-
-    let gapStart = gapAngle - gapSize/2;
-    let gapEnd = gapAngle + gapSize/2;
-
-    if(dist > radius){
-      if(angle > gapStart && angle < gapEnd){
-        // boşluktan çıktı → elendi
-        c.eliminated = true;
-        addEliminated(c);
-      } else {
-        // duvara çarptı → sek
-        let normalX = dx/dist;
-        let normalY = dy/dist;
-        let dot = c.dx*normalX + c.dy*normalY;
-        c.dx -= 2*dot*normalX;
-        c.dy -= 2*dot*normalY;
-
-        c.x = centerX + normalX * (radius-2);
-        c.y = centerY + normalY * (radius-2);
-      }
-    }
-  });
-
-  let alive = countries.filter(c=>!c.eliminated);
-  if(alive.length === 1){
-    setTimeout(resetGame, 3000);
-  }
-}
-
-function addEliminated(country){
-  const box = document.createElement("div");
-  box.className="flagBox";
-  box.innerHTML = `<div class="flagEmoji">${country.emoji}</div>
-                   <div class="flagName">${country.name}</div>`;
-  eliminatedDiv.appendChild(box);
-}
-
-function resetGame(){
-  location.reload();
 }
 
 function animate(){
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawArena();
-  drawFlags();
-  update();
-  requestAnimationFrame(animate);
+
+  if(radius > 200){
+    radius -= shrinkSpeed;
+  }
+
+  drawCircle();
+
+  let survivors = [];
+
+  for(let c of countries){
+
+    const x = centerX + Math.cos(c.angle)*(radius-20);
+    const y = centerY + Math.sin(c.angle)*(radius-20);
+
+    ctx.beginPath();
+    ctx.arc(x,y,8,0,Math.PI*2);
+    ctx.fillStyle="white";
+    ctx.fill();
+
+    // boşluktan çıkma kontrolü
+    if(c.angle > -gapAngle/2 && c.angle < gapAngle/2){
+      eliminated.push(c);
+    } else {
+      survivors.push(c);
+    }
+
+    c.angle += c.speed;
+  }
+
+  countries = survivors;
+
+  if(eliminated.length > 0){
+    updateEliminated();
+  }
+
+  if(countries.length > 1){
+    requestAnimationFrame(animate);
+  }
 }
 
 animate();
+
 </script>
+
+</body>
+</html>
