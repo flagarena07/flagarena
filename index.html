@@ -3,18 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game UI</title>
+<title>Flag Arena</title>
 
 <style>
 body{
     margin:0;
     overflow:hidden;
     background: radial-gradient(circle at center, #1a1a2e 0%, #0d0d18 70%, #000);
-    font-family: Arial, sans-serif;
-    color:white;
 }
 
-/* ==== Wheel Container ==== */
 .wheel-container{
     position:absolute;
     top:50%;
@@ -27,56 +24,13 @@ body{
 canvas{
     width:100%;
     height:100%;
-    animation: spin 4s linear infinite;
-    filter: drop-shadow(0 0 25px #ff00cc);
+    animation: spin 3s linear infinite;
 }
 
 @keyframes spin{
     from{ transform: rotate(0deg);}
     to{ transform: rotate(360deg);}
 }
-
-/* ==== Neon Outer Ring ==== */
-.wheel-container::after{
-    content:"";
-    position:absolute;
-    inset:-15px;
-    border-radius:50%;
-    border:8px solid transparent;
-    background:conic-gradient(#ff00cc,#00ffff,#ffcc00,#ff00cc);
-    filter:blur(8px);
-    z-index:-1;
-}
-
-/* ==== TOP WINS ==== */
-.top-wins{
-    position:absolute;
-    top:20px;
-    right:20px;
-    width:260px;
-    padding:15px;
-    border-radius:15px;
-    background:rgba(0,0,0,0.6);
-    backdrop-filter:blur(12px);
-    box-shadow:0 0 20px rgba(255,0,200,0.6);
-}
-
-.top-wins h3{
-    text-align:center;
-    margin:0 0 10px 0;
-    color:#ffcc00;
-}
-
-.player{
-    display:flex;
-    justify-content:space-between;
-    padding:8px 0;
-    font-weight:bold;
-}
-
-.rank1{color:gold;}
-.rank2{color:silver;}
-.rank3{color:#cd7f32;}
 </style>
 </head>
 <body>
@@ -85,18 +39,20 @@ canvas{
     <canvas id="wheel" width="600" height="600"></canvas>
 </div>
 
-<div class="top-wins">
-    <h3>TOP WINS</h3>
-    <div class="player rank1"><span>🥇 PlayerA</span><span>12,450</span></div>
-    <div class="player rank2"><span>🥈 PlayerB</span><span>10,920</span></div>
-    <div class="player rank3"><span>🥉 PlayerC</span><span>9,870</span></div>
-</div>
-
 <script>
 const flags = [
-"🇺🇸","🇹🇷","🇩🇪","🇫🇷","🇬🇧","🇮🇹","🇪🇸","🇧🇷",
-"🇨🇦","🇯🇵","🇰🇷","🇦🇺","🇳🇱","🇸🇪","🇳🇴",
-"🇨🇭","🇲🇽","🇦🇷","🇮🇳","🇨🇳"
+"https://flagcdn.com/w80/us.png",
+"https://flagcdn.com/w80/tr.png",
+"https://flagcdn.com/w80/de.png",
+"https://flagcdn.com/w80/fr.png",
+"https://flagcdn.com/w80/gb.png",
+"https://flagcdn.com/w80/it.png",
+"https://flagcdn.com/w80/es.png",
+"https://flagcdn.com/w80/br.png",
+"https://flagcdn.com/w80/ca.png",
+"https://flagcdn.com/w80/jp.png",
+"https://flagcdn.com/w80/kr.png",
+"https://flagcdn.com/w80/au.png"
 ];
 
 const canvas = document.getElementById("wheel");
@@ -104,17 +60,31 @@ const ctx = canvas.getContext("2d");
 
 const size = canvas.width;
 const center = size/2;
-const radius = size/2 - 20;
+const radius = size/2 - 30;
 const total = flags.length;
 const slice = (2*Math.PI)/total;
 
-function drawWheel(){
-    ctx.clearRect(0,0,size,size);
+let images = [];
+let loaded = 0;
 
+flags.forEach((src,i)=>{
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = src;
+    img.onload = ()=>{
+        loaded++;
+        if(loaded === total){
+            drawWheel();
+        }
+    };
+    images.push(img);
+});
+
+function drawWheel(){
     for(let i=0;i<total;i++){
         const angle = i*slice;
 
-        // Slice color
+        // Slice background
         ctx.beginPath();
         ctx.moveTo(center,center);
         ctx.arc(center,center,radius,angle,angle+slice);
@@ -122,18 +92,14 @@ function drawWheel(){
         ctx.fillStyle = i%2==0 ? "#141430" : "#1f1f4a";
         ctx.fill();
 
-        // Flag text
+        // Flag image
         ctx.save();
         ctx.translate(center,center);
         ctx.rotate(angle + slice/2);
-        ctx.textAlign="right";
-        ctx.font="28px Arial";
-        ctx.fillText(flags[i], radius-20,10);
+        ctx.drawImage(images[i], radius-70, -25, 50, 35);
         ctx.restore();
     }
 }
-
-drawWheel();
 </script>
 
 </body>
