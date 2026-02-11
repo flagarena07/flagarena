@@ -5,23 +5,40 @@
 <title>Flag Arena</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 <style>
-body{margin:0;overflow:hidden;background:#fff;font-family:Arial;}
+body{
+margin:0;
+overflow:hidden;
+background:#fff;
+font-family:Arial;
+}
+
 #bgTitle{
-position:absolute;top:50%;left:50%;
+position:absolute;
+top:50%;
+left:50%;
 transform:translate(-50%,-50%);
-font-size:120px;font-weight:900;
+font-size:120px;
+font-weight:900;
 color:rgba(0,0,0,0.05);
 pointer-events:none;
 }
+
 #countdown{
-position:absolute;top:50%;left:50%;
+position:absolute;
+top:50%;
+left:50%;
 transform:translate(-50%,-50%);
-font-size:80px;font-weight:bold;
+font-size:80px;
+font-weight:bold;
 }
+
 #winner{
-position:absolute;top:20px;left:50%;
+position:absolute;
+top:20px;
+left:50%;
 transform:translateX(-50%);
-font-size:30px;font-weight:bold;
+font-size:28px;
+font-weight:bold;
 }
 </style>
 </head>
@@ -32,6 +49,7 @@ font-size:30px;font-weight:bold;
 <div id="winner"></div>
 
 <script>
+
 const {Engine,Render,Runner,World,Bodies,Body,Composite,Events} = Matter;
 
 const engine = Engine.create();
@@ -41,10 +59,12 @@ const world = engine.world;
 
 const width = window.innerWidth;
 const height = window.innerHeight;
+
 const centerX = width/2;
 const centerY = height/2;
+
 const radius = 280;
-const gapSize = 50;
+const gapAngle = 40;
 
 const render = Render.create({
 element: document.body,
@@ -61,61 +81,57 @@ Render.run(render);
 Runner.run(Runner.create(), engine);
 
 let flags=[];
-let arenaParts=[];
 let arena;
 let gameStarted=false;
 
 const countries=[
 "tr","us","de","fr","br","gb","it","es","ru","jp",
 "cn","in","kr","mx","ar","nl","se","ch","sa","au",
-"ca","be","pl","no","dk","fi","pt","gr","hu","cz",
-"ua","ro","sk","bg","rs","hr","cl","co","pe","ve"
+"ca","be","pl","no","dk","fi","pt","gr","hu","cz"
 ];
 
 function createArena(){
-arena = Composite.create();
+
+let parts=[];
 
 for(let i=0;i<360;i+=4){
-if(i>180-gapSize/2 && i<180+gapSize/2) continue;
+
+if(i>180-gapAngle/2 && i<180+gapAngle/2) continue;
 
 let angle=i*Math.PI/180;
-let x=centerX+radius*Math.cos(angle);
-let y=centerY+radius*Math.sin(angle);
+let x=radius*Math.cos(angle);
+let y=radius*Math.sin(angle);
 
-let wall=Bodies.rectangle(x,y,10,20,{
-isStatic:true,
-angle:angle,
+let wall=Bodies.rectangle(x,y,10,25,{
 render:{fillStyle:"#000"}
 });
 
-Composite.add(arena, wall);
-arenaParts.push(wall);
+parts.push(wall);
 }
 
-World.add(world, arena);
-}
-
-function rotateArena(){
-arenaParts.forEach(part=>{
-Body.rotate(part,0.01);
-let dx=part.position.x-centerX;
-let dy=part.position.y-centerY;
-let angle=Math.atan2(dy,dx)+0.01;
-let x=centerX+radius*Math.cos(angle);
-let y=centerY+radius*Math.sin(angle);
-Body.setPosition(part,{x,y});
+arena=Body.create({
+parts:parts,
+isStatic:false,
+inertia:Infinity
 });
+
+Body.setPosition(arena,{x:centerX,y:centerY});
+Body.setAngularVelocity(arena,0.02);
+
+World.add(world,arena);
 }
 
 function createFlags(){
+
 countries.forEach(code=>{
+
 let x=centerX+(Math.random()*200-100);
 let y=centerY+(Math.random()*200-100);
 
 let body=Bodies.circle(x,y,18,{
 restitution:1,
 friction:0,
-frictionAir:0,
+frictionAir:0.002,
 render:{
 sprite:{
 texture:`https://flagcdn.com/w80/${code}.png`,
@@ -126,8 +142,8 @@ yScale:0.5
 });
 
 Body.setVelocity(body,{
-x:(Math.random()-0.5)*12,
-y:(Math.random()-0.5)*12
+x:(Math.random()-0.5)*15,
+y:(Math.random()-0.5)*15
 });
 
 body.country=code;
@@ -137,6 +153,7 @@ World.add(world,body);
 }
 
 function startCountdown(){
+
 let count=10;
 const cd=document.getElementById("countdown");
 cd.innerText=count;
@@ -144,6 +161,7 @@ cd.innerText=count;
 let interval=setInterval(()=>{
 count--;
 cd.innerText=count;
+
 if(count===0){
 clearInterval(interval);
 setTimeout(()=>{
@@ -151,6 +169,7 @@ cd.style.display="none";
 startGame();
 },500);
 }
+
 },1000);
 }
 
@@ -159,34 +178,60 @@ gameStarted=true;
 }
 
 Events.on(engine,"beforeUpdate",()=>{
-if(!gameStarted) return;
-rotateArena();
-});
 
-Events.on(engine,"afterUpdate",()=>{
 if(!gameStarted) return;
 
 flags.forEach(flag=>{
+
+let forceMagnitude = 0.0005;
+
+if(flags.length<=3){
+forceMagnitude = 0.002;
+}
+
+Body.applyForce(flag,flag.position,{
+x:(Math.random()-0.5)*forceMagnitude,
+y:(Math.random()-0.5)*forceMagnitude
+});
+
+});
+
+});
+
+Events.on(engine,"afterUpdate",()=>{
+
+if(!gameStarted) return;
+
+flags.forEach(flag=>{
+
 let dx=flag.position.x-centerX;
 let dy=flag.position.y-centerY;
 let dist=Math.sqrt(dx*dx+dy*dy);
 
-if(dist>radius+25){
+if(dist>radius+40){
+
 World.remove(world,flag);
 flags=flags.filter(f=>f!==flag);
+
 }
+
 });
 
 if(flags.length===1){
+
 document.getElementById("winner").innerText="Winner: "+flags[0].country.toUpperCase();
-setTimeout(()=>location.reload(),5000);
+
+setTimeout(()=>location.reload(),4000);
 gameStarted=false;
+
 }
+
 });
 
 createArena();
 createFlags();
 startCountdown();
+
 </script>
 </body>
 </html>
