@@ -7,29 +7,36 @@
 body{
   margin:0;
   overflow:hidden;
-  background:#0d1321;
+  background:#0f172a;
   font-family:Arial;
   color:white;
 }
-
 canvas{
   display:block;
-  margin:auto;
 }
-
-#eliminated{
+#countdown, #winner{
   position:absolute;
-  bottom:20px;
-  width:100%;
+  left:50%;
+  transform:translateX(-50%);
+  font-weight:bold;
   text-align:center;
-  font-size:22px;
+}
+#countdown{
+  top:40%;
+  font-size:80px;
+}
+#winner{
+  top:45%;
+  font-size:50px;
+  display:none;
 }
 </style>
 </head>
 <body>
 
 <canvas id="arena"></canvas>
-<div id="eliminated"></div>
+<div id="countdown"></div>
+<div id="winner"></div>
 
 <script>
 
@@ -46,44 +53,80 @@ window.addEventListener("resize",resize);
 function CX(){ return canvas.width/2 }
 function CY(){ return canvas.height/2 }
 
-const arenaRadius=Math.min(window.innerWidth,window.innerHeight)/3;
+let arenaRadius=Math.min(window.innerWidth,window.innerHeight)/3;
 let rotation=0;
+let gameStarted=false;
+let gameOver=false;
 
-const flags=[
-"🇺🇸","🇹🇷","🇩🇪","🇫🇷","🇧🇷","🇯🇵","🇮🇹","🇬🇧","🇨🇦","🇦🇷",
-"🇪🇸","🇰🇷","🇲🇽","🇳🇱","🇨🇭","🇸🇪","🇳🇴","🇵🇹","🇬🇷","🇮🇳",
-"🇨🇳","🇷🇺","🇦🇺","🇳🇿","🇿🇦","🇪🇬","🇸🇦","🇦🇪","🇮🇷","🇮🇶"
+const countryCodes=[
+"us","tr","de","fr","br","jp","it","gb","ca","ar",
+"es","kr","mx","nl","se","no","pt","gr","in","cn",
+"ru","au","nz","za","eg","sa","ae","id","pk","ch"
 ];
 
 let particles=[];
-let eliminated=[];
+let images={};
 
-function init(){
-  particles=[];
-  eliminated=[];
-  flags.forEach(flag=>{
-    particles.push({
-      flag:flag,
-      x:CX()+(Math.random()-0.5)*200,
-      y:CY()+(Math.random()-0.5)*200,
-      vx:(Math.random()-0.5)*12, // hızlı
-      vy:(Math.random()-0.5)*12,
-      r:18
-    });
+function preloadImages(callback){
+  let loaded=0;
+  countryCodes.forEach(code=>{
+    const img=new Image();
+    img.src="https://flagcdn.com/w40/"+code+".png";
+    img.onload=()=>{
+      loaded++;
+      if(loaded===countryCodes.length){
+        callback();
+      }
+    };
+    images[code]=img;
   });
 }
-init();
+
+function initGame(){
+  particles=[];
+  gameOver=false;
+  document.getElementById("winner").style.display="none";
+
+  countryCodes.forEach(code=>{
+    particles.push({
+      code:code,
+      x:CX()+(Math.random()-0.5)*200,
+      y:CY()+(Math.random()-0.5)*200,
+      vx:(Math.random()-0.5)*8,
+      vy:(Math.random()-0.5)*8,
+      r:20
+    });
+  });
+
+  startCountdown();
+}
+
+function startCountdown(){
+  let count=10;
+  const cd=document.getElementById("countdown");
+  cd.innerText=count;
+
+  const interval=setInterval(()=>{
+    count--;
+    cd.innerText=count;
+    if(count<=0){
+      clearInterval(interval);
+      cd.innerText="";
+      gameStarted=true;
+    }
+  },1000);
+}
 
 function drawArena(){
-  rotation+=0.02;
+  rotation+=0.025;
 
   ctx.save();
   ctx.translate(CX(),CY());
   ctx.rotate(rotation);
 
   ctx.beginPath();
-  ctx.arc(0,0,arenaRadius,0.6,Math.PI*2-0.6);
-  ctx.strokeStyle="#00ffff";
+  ctx.arc(0,0,arenaRadius,0.7,Math.PI*2-0.7);
+  ctx.strokeStyle="#22d3ee";
   ctx.lineWidth=6;
   ctx.stroke();
 
@@ -91,8 +134,19 @@ function drawArena(){
 }
 
 function update(){
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
   drawArena();
+
+  if(!gameStarted){
+    requestAnimationFrame(update);
+    return;
+  }
+
+  if(gameOver){
+    requestAnimationFrame(update);
+    return;
+  }
 
   for(let i=0;i<particles.length;i++){
     let p=particles[i];
@@ -107,15 +161,11 @@ function update(){
     if(dist+p.r>arenaRadius){
 
       let angle=Math.atan2(dy,dx)-rotation;
-
-      // normalize angle
       while(angle<-Math.PI) angle+=Math.PI*2;
       while(angle>Math.PI) angle-=Math.PI*2;
 
-      if(angle>-0.6 && angle<0.6){
-        eliminated.push(p.flag);
+      if(angle>-0.7 && angle<0.7){
         particles.splice(i,1);
-        document.getElementById("eliminated").innerText=eliminated.join(" ");
         i--;
         continue;
       }
@@ -127,7 +177,6 @@ function update(){
       p.vy-=2*dot*ny;
     }
 
-    // çarpışma
     for(let j=i+1;j<particles.length;j++){
       let p2=particles[j];
       let dx2=p2.x-p.x;
@@ -146,16 +195,29 @@ function update(){
       }
     }
 
-    ctx.font="28px Arial";
-    ctx.textAlign="center";
-    ctx.textBaseline="middle";
-    ctx.fillText(p.flag,p.x,p.y);
+    ctx.drawImage(images[p.code], p.x-p.r, p.y-p.r, p.r*2, p.r*2);
+  }
+
+  if(particles.length===1){
+    gameOver=true;
+    gameStarted=false;
+
+    document.getElementById("winner").innerText=
+      "WINNER: "+particles[0].code.toUpperCase();
+    document.getElementById("winner").style.display="block";
+
+    setTimeout(()=>{
+      initGame();
+    },4000);
   }
 
   requestAnimationFrame(update);
 }
 
-update();
+preloadImages(()=>{
+  initGame();
+  update();
+});
 
 </script>
 </body>
