@@ -145,10 +145,20 @@ let dist=Math.sqrt(dx*dx+dy*dy);
 
 if(dist+f.size/2>radius){
 
-let angle=Math.atan2(dy,dx)-arenaAngle;
-if(angle<0) angle+=Math.PI*2;
+let worldAngle = Math.atan2(dy, dx);
+let relativeAngle = worldAngle - arenaAngle;
 
-if(angle<gapSize || angle>Math.PI*2-gapSize){
+// normalize 0 - 2PI
+while (relativeAngle < 0) relativeAngle += Math.PI * 2;
+while (relativeAngle > Math.PI * 2) relativeAngle -= Math.PI * 2;
+
+// gap merkezini 0 kabul ediyoruz
+let gapStart = (Math.PI * 2) - (gapSize / 2);
+let gapEnd = gapSize / 2;
+
+// sadece gap içindeyse elenecek
+if (relativeAngle >= gapStart || relativeAngle <= gapEnd) {
+
 eliminateFlag(i);
 return;
 }
