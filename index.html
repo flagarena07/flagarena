@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Flag Arena</title>
+
 <style>
 body{
     margin:0;
@@ -11,15 +12,17 @@ body{
     font-family:Arial, sans-serif;
 }
 
+/* Arka plan yazısı tam ortalı */
 #bgText{
-    position:absolute;
+    position:fixed;
     top:50%;
     left:50%;
     transform:translate(-50%,-50%);
     font-size:120px;
     font-weight:900;
-    color:rgba(255,255,255,0.04);
+    color:rgba(255,255,255,0.05);
     letter-spacing:20px;
+    white-space:nowrap;
     pointer-events:none;
 }
 
@@ -31,6 +34,7 @@ body{
     padding:15px;
     border-radius:12px;
     color:white;
+    font-size:14px;
 }
 
 #eliminated{
@@ -38,7 +42,7 @@ body{
     bottom:15px;
     width:100%;
     text-align:center;
-    font-size:18px;
+    font-size:20px;
     color:white;
 }
 </style>
@@ -57,28 +61,37 @@ body{
 <div id="eliminated"></div>
 
 <script>
+
 const canvas=document.getElementById("arena");
 const ctx=canvas.getContext("2d");
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
 
-const centerX=canvas.width/2;
-const centerY=canvas.height/2;
+function resizeCanvas(){
+    canvas.width=window.innerWidth;
+    canvas.height=window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize",resizeCanvas);
+
+function centerX(){ return canvas.width/2; }
+function centerY(){ return canvas.height/2; }
+
 const arenaRadius=300;
 let rotation=0;
 
 const eliminatedDiv=document.getElementById("eliminated");
-const winsList=document.getElementById("winsList");
 
-let wins={};
 let eliminatedFlags=[];
 
+/* 100+ ülke bayrağı */
 const flags=[
-"🇺🇸","🇹🇷","🇩🇪","🇫🇷","🇧🇷","🇯🇵","🇮🇹","🇬🇧","🇨🇦","🇦🇷","🇪🇸","🇰🇷","🇲🇽","🇳🇱","🇨🇭","🇸🇪","🇳🇴","🇵🇹","🇬🇷","🇮🇳",
-"🇨🇳","🇷🇺","🇦🇺","🇳🇿","🇿🇦","🇪🇬","🇸🇦","🇦🇪","🇮🇷","🇮🇶","🇵🇱","🇺🇦","🇧🇪","🇦🇹","🇩🇰","🇫🇮","🇮🇪","🇮🇱","🇹🇭","🇻🇳",
-"🇲🇾","🇸🇬","🇵🇭","🇮🇩","🇵🇰","🇧🇩","🇨🇱","🇵🇪","🇨🇴","🇻🇪","🇨🇿","🇭🇺","🇷🇴","🇧🇬","🇭🇷","🇷🇸","🇸🇰","🇸🇮","🇱🇹","🇱🇻",
-"🇪🇪","🇰🇿","🇺🇿","🇰🇪","🇳🇬","🇪🇹","🇲🇦","🇹🇳","🇶🇦","🇰🇼","🇴🇲","🇯🇴","🇱🇧","🇲🇳","🇳🇵","🇱🇰","🇰🇭","🇱🇦","🇲🇲","🇧🇹",
-"🇧🇴","🇵🇾","🇺🇾","🇬🇹","🇭🇳","🇸🇻","🇳🇮","🇨🇷","🇵🇦","🇩🇴","🇭🇹","🇯🇲","🇨🇺","🇹🇿","🇺🇬","🇿🇲","🇿🇼","🇸🇳","🇨🇮","🇬🇭"
+"🇺🇸","🇹🇷","🇩🇪","🇫🇷","🇧🇷","🇯🇵","🇮🇹","🇬🇧","🇨🇦","🇦🇷",
+"🇪🇸","🇰🇷","🇲🇽","🇳🇱","🇨🇭","🇸🇪","🇳🇴","🇵🇹","🇬🇷","🇮🇳",
+"🇨🇳","🇷🇺","🇦🇺","🇳🇿","🇿🇦","🇪🇬","🇸🇦","🇦🇪","🇮🇷","🇮🇶",
+"🇵🇱","🇺🇦","🇧🇪","🇦🇹","🇩🇰","🇫🇮","🇮🇪","🇮🇱","🇹🇭","🇻🇳",
+"🇲🇾","🇸🇬","🇵🇭","🇮🇩","🇵🇰","🇧🇩","🇨🇱","🇵🇪","🇨🇴","🇻🇪",
+"🇨🇿","🇭🇺","🇷🇴","🇧🇬","🇭🇷","🇷🇸","🇸🇰","🇸🇮","🇱🇹","🇱🇻",
+"🇪🇪","🇰🇿","🇺🇿","🇰🇪","🇳🇬","🇪🇹","🇲🇦","🇹🇳","🇶🇦","🇰🇼",
+"🇴🇲","🇯🇴","🇱🇧","🇲🇳","🇳🇵","🇱🇰","🇰🇭","🇱🇦","🇲🇲","🇧🇹"
 ];
 
 let particles=[];
@@ -90,31 +103,35 @@ function init(){
     flags.forEach(flag=>{
         particles.push({
             flag:flag,
-            x:centerX+(Math.random()-0.5)*100,
-            y:centerY+(Math.random()-0.5)*100,
-            vx:(Math.random()-0.5)*8,
-            vy:(Math.random()-0.5)*8,
-            r:18
+            x:centerX()+(Math.random()-0.5)*150,
+            y:centerY()+(Math.random()-0.5)*150,
+            vx:(Math.random()-0.5)*10,  // daha hızlı
+            vy:(Math.random()-0.5)*10,
+            r:20
         });
     });
 }
 init();
 
 function drawArena(){
-    rotation+=0.01;
+    rotation+=0.015; // arena daha hızlı dönüyor
+
     ctx.save();
-    ctx.translate(centerX,centerY);
+    ctx.translate(centerX(),centerY());
     ctx.rotate(rotation);
+
     ctx.beginPath();
-    ctx.arc(0,0,arenaRadius,0.5,Math.PI*2-0.5);
+    ctx.arc(0,0,arenaRadius,0.6,Math.PI*2-0.6);
     ctx.strokeStyle="#00ffff";
     ctx.lineWidth=6;
     ctx.stroke();
+
     ctx.restore();
 }
 
 function update(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
+
     drawArena();
 
     for(let i=0;i<particles.length;i++){
@@ -123,19 +140,22 @@ function update(){
         p.x+=p.vx;
         p.y+=p.vy;
 
-        let dx=p.x-centerX;
-        let dy=p.y-centerY;
+        let dx=p.x-centerX();
+        let dy=p.y-centerY();
         let dist=Math.sqrt(dx*dx+dy*dy);
 
         if(dist+p.r>arenaRadius){
             let angle=Math.atan2(dy,dx)-rotation;
-            if(angle>-0.5 && angle<0.5){
+
+            // boşluk alanı
+            if(angle>-0.6 && angle<0.6){
                 eliminatedFlags.push(p.flag);
                 particles.splice(i,1);
-                updateEliminated();
+                eliminatedDiv.innerHTML=eliminatedFlags.join(" ");
                 i--;
                 continue;
             }
+
             let nx=dx/dist;
             let ny=dy/dist;
             let dot=p.vx*nx+p.vy*ny;
@@ -143,11 +163,13 @@ function update(){
             p.vy-=2*dot*ny;
         }
 
+        // çarpışma
         for(let j=i+1;j<particles.length;j++){
             let p2=particles[j];
             let dx=p2.x-p.x;
             let dy=p2.y-p.y;
             let d=Math.sqrt(dx*dx+dy*dy);
+
             if(d<p.r+p2.r){
                 let nx=dx/d;
                 let ny=dy/d;
@@ -160,7 +182,7 @@ function update(){
             }
         }
 
-        ctx.font="26px Arial";
+        ctx.font="28px Arial";
         ctx.textAlign="center";
         ctx.textBaseline="middle";
         ctx.fillText(p.flag,p.x,p.y);
@@ -170,9 +192,6 @@ function update(){
 }
 update();
 
-function updateEliminated(){
-    eliminatedDiv.innerHTML=eliminatedFlags.join(" ");
-}
 </script>
 
 </body>
