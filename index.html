@@ -4,12 +4,7 @@
 <meta charset="UTF-8">
 <title>FLAG ARENA</title>
 <style>
-body {
-    margin:0;
-    background:#ffffff;
-    overflow:hidden;
-    font-family:Arial, sans-serif;
-}
+body { margin:0; background:white; overflow:hidden; font-family:Arial; }
 canvas { display:block; }
 
 #winsBoard {
@@ -19,12 +14,7 @@ canvas { display:block; }
     width:200px;
     font-size:14px;
 }
-#winsBoard h3 {
-    margin:0 0 10px 0;
-}
-#winsList div {
-    margin-bottom:4px;
-}
+#winsBoard h3 { margin:0 0 10px 0; }
 
 #countdown {
     position:absolute;
@@ -65,8 +55,8 @@ canvas.height = window.innerHeight;
 
 const centerX = canvas.width/2;
 const centerY = canvas.height/2 - 50;
-const arenaRadius = 250;
-const gapSize = Math.PI / 6;
+const arenaRadius = 260;
+const gapSize = Math.PI / 7;
 
 let gapAngle = 0;
 let flags = [];
@@ -74,17 +64,29 @@ let eliminated = [];
 let wins = {};
 let gameActive = false;
 
-const flagList = ["🇹🇷","🇺🇸","🇩🇪","🇫🇷","🇧🇷","🇯🇵","🇮🇹","🇪🇸"];
+const flagSources = [
+"https://flagcdn.com/w80/tr.png",
+"https://flagcdn.com/w80/us.png",
+"https://flagcdn.com/w80/de.png",
+"https://flagcdn.com/w80/fr.png",
+"https://flagcdn.com/w80/br.png",
+"https://flagcdn.com/w80/jp.png",
+"https://flagcdn.com/w80/it.png",
+"https://flagcdn.com/w80/es.png"
+];
 
 function loadFlags() {
     flags = [];
-    flagList.forEach(flag=>{
+    flagSources.forEach(src=>{
+        const img = new Image();
+        img.src = src;
         flags.push({
-            symbol: flag,
+            img: img,
+            name: src,
             x: centerX + (Math.random()-0.5)*100,
             y: centerY + (Math.random()-0.5)*100,
-            vx: (Math.random()-0.5)*6,
-            vy: (Math.random()-0.5)*6,
+            vx: (Math.random()-0.5)*10, // hız artırıldı
+            vy: (Math.random()-0.5)*10,
             radius: 25
         });
     });
@@ -96,9 +98,7 @@ function startCountdown() {
     cd.innerText = count;
     const interval = setInterval(()=>{
         count--;
-        if(count >= 0) {
-            cd.innerText = count;
-        }
+        if(count >= 0) cd.innerText = count;
         if(count < 0) {
             clearInterval(interval);
             cd.innerText = "";
@@ -107,26 +107,51 @@ function startCountdown() {
     },1000);
 }
 
-function update() {
+function circleCollision(a,b){
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < a.radius + b.radius){
+        const angle = Math.atan2(dy,dx);
+        const targetX = a.x + Math.cos(angle)*(a.radius+b.radius);
+        const targetY = a.y + Math.sin(angle)*(a.radius+b.radius);
+        const ax = (targetX - b.x)*0.5;
+        const ay = (targetY - b.y)*0.5;
+        a.vx -= ax;
+        a.vy -= ay;
+        b.vx += ax;
+        b.vy += ay;
+    }
+}
+
+function update(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    gapAngle += 0.02;
+    gapAngle += 0.03;
 
-    // Arena
+    // Arena çizimi
     ctx.beginPath();
     ctx.arc(centerX, centerY, arenaRadius, 0, Math.PI*2);
+    ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Gap
+    // Gap görsel
     ctx.beginPath();
     ctx.arc(centerX, centerY, arenaRadius, gapAngle, gapAngle+gapSize);
     ctx.strokeStyle="red";
-    ctx.lineWidth=5;
+    ctx.lineWidth=6;
     ctx.stroke();
     ctx.strokeStyle="black";
     ctx.lineWidth=1;
 
-    if(gameActive) {
+    if(gameActive){
+        // Çarpışma kontrolü
+        for(let i=0;i<flags.length;i++){
+            for(let j=i+1;j<flags.length;j++){
+                circleCollision(flags[i],flags[j]);
+            }
+        }
+
         flags.forEach(f=>{
             f.x += f.vx;
             f.y += f.vy;
@@ -135,13 +160,13 @@ function update() {
             const dy = f.y - centerY;
             const dist = Math.sqrt(dx*dx + dy*dy);
 
-            if(dist + f.radius > arenaRadius) {
+            if(dist + f.radius > arenaRadius){
                 const angle = Math.atan2(dy,dx);
                 let diff = angle - gapAngle;
                 diff = (diff + Math.PI*2) % (Math.PI*2);
 
-                if(diff > gapSize) {
-                    // bounce
+                if(diff > gapSize){
+                    // Sekme (duvardan çıkamaz)
                     const nx = dx/dist;
                     const ny = dy/dist;
                     const dot = f.vx*nx + f.vy*ny;
@@ -155,48 +180,45 @@ function update() {
 
         flags = flags.filter(f=>!eliminated.includes(f));
 
-        if(flags.length === 1) {
+        if(flags.length === 1){
             const winner = flags[0];
-            wins[winner.symbol] = (wins[winner.symbol]||0)+1;
+            wins[winner.name] = (wins[winner.name]||0)+1;
             updateWins();
-            gameActive = false;
+            gameActive=false;
             setTimeout(resetGame,2000);
         }
     }
 
-    // Draw flags
-    ctx.font = "40px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
     flags.forEach(f=>{
-        ctx.fillText(f.symbol,f.x,f.y);
+        ctx.drawImage(f.img,f.x-f.radius,f.y-f.radius,f.radius*2,f.radius*2);
     });
 
     drawEliminated();
     requestAnimationFrame(update);
 }
 
-function drawEliminated() {
+function drawEliminated(){
     const startY = canvas.height - 80;
-    ctx.font = "30px Arial";
     eliminated.forEach((f,i)=>{
-        ctx.fillText(f.symbol,50 + i*40,startY);
+        ctx.drawImage(f.img,40 + i*45,startY,40,40);
     });
 }
 
-function updateWins() {
+function updateWins(){
     const list = document.getElementById("winsList");
-    list.innerHTML = "";
-    const sorted = Object.entries(wins).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    list.innerHTML="";
+    const sorted = Object.entries(wins)
+        .sort((a,b)=>b[1]-a[1])
+        .slice(0,10);
     sorted.forEach(entry=>{
-        const div = document.createElement("div");
-        div.innerText = entry[0] + " - " + entry[1];
+        const div=document.createElement("div");
+        div.innerText = entry[0].split("/").pop() + " - " + entry[1];
         list.appendChild(div);
     });
 }
 
-function resetGame() {
-    eliminated = [];
+function resetGame(){
+    eliminated=[];
     loadFlags();
     startCountdown();
 }
