@@ -7,21 +7,18 @@
 body { margin:0; background:white; overflow:hidden; font-family:Arial; }
 canvas { display:block; }
 #winsBoard { position:absolute; top:20px; right:20px; width:230px; font-size:13px; }
-#winsBoard h3 { margin:0 0 10px 0; }
 .winItem{ display:flex; align-items:center; margin-bottom:4px; }
 .winItem img{ width:18px; height:12px; margin-right:6px; }
 #countdown { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:80px; font-weight:bold; }
-#title { position:absolute; top:40%; left:50%; transform:translateX(-50%); font-size:50px; opacity:0.08; }
 </style>
 </head>
 <body>
 
-<div id="title">FLAG ARENA</div>
 <div id="countdown"></div>
 
 <div id="winsBoard">
-    <h3>Top Wins</h3>
-    <div id="winsList"></div>
+<h3>Top Wins</h3>
+<div id="winsList"></div>
 </div>
 
 <canvas id="game"></canvas>
@@ -33,18 +30,18 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 const centerX = canvas.width/2;
-const centerY = canvas.height/2 - 50;
+const centerY = canvas.height/2 - 40;
 const arenaRadius = 260;
 const wallThickness = 18;
-const gapSize = Math.PI / 8;
+const gapSize = Math.PI/8;
 
 let gapAngle = 0;
-let flags = [];
-let eliminated = [];
-let wins = {};
-let gameActive = false;
+let flags=[];
+let eliminated=[];
+let wins={};
+let gameActive=false;
 
-const countryCodes = [
+const codes=[
 "tr","us","de","fr","br","jp","it","es","gb","ca",
 "ru","cn","in","ar","mx","nl","se","no","fi","pl",
 "pt","gr","ch","be","at","dk","kr","au","nz","za",
@@ -53,178 +50,162 @@ const countryCodes = [
 "id","ph","sg","pk","bd","ng","ke","ma","tn","dz"
 ];
 
-const flagSources = countryCodes.map(code =>
-    `https://flagcdn.com/w80/${code}.png`
-);
-
 function loadFlags(){
-    flags = [];
-    flagSources.forEach(src=>{
-        const img = new Image();
-        img.src = src;
-        flags.push({
-            img: img,
-            name: src,
-            x: centerX + (Math.random()-0.5)*120,
-            y: centerY + (Math.random()-0.5)*120,
-            vx: (Math.random()-0.5)*3.5,
-            vy: (Math.random()-0.5)*3.5,
-            radius: 16
-        });
-    });
+flags=[];
+codes.forEach(c=>{
+const img=new Image();
+img.src=`https://flagcdn.com/w80/${c}.png`;
+flags.push({
+img:img,
+name:img.src,
+x:centerX+(Math.random()-0.5)*120,
+y:centerY+(Math.random()-0.5)*120,
+vx:(Math.random()-0.5)*3.2,
+vy:(Math.random()-0.5)*3.2,
+r:16
+});
+});
 }
 
 function startCountdown(){
-    let count=3;
-    const cd=document.getElementById("countdown");
-    cd.innerText=count;
-    const interval=setInterval(()=>{
-        count--;
-        if(count>=0) cd.innerText=count;
-        if(count<0){
-            clearInterval(interval);
-            cd.innerText="";
-            gameActive=true;
-        }
-    },1000);
+let c=3;
+const el=document.getElementById("countdown");
+el.innerText=c;
+const i=setInterval(()=>{
+c--;
+if(c>=0) el.innerText=c;
+if(c<0){clearInterval(i);el.innerText="";gameActive=true;}
+},1000);
 }
 
-function circleCollision(a,b){
-    const dx=b.x-a.x;
-    const dy=b.y-a.y;
-    const dist=Math.sqrt(dx*dx+dy*dy);
-    if(dist < a.radius+b.radius){
-        const angle=Math.atan2(dy,dx);
-        const overlap=(a.radius+b.radius - dist)/2;
-        const nx=Math.cos(angle);
-        const ny=Math.sin(angle);
-
-        a.x -= nx*overlap;
-        a.y -= ny*overlap;
-        b.x += nx*overlap;
-        b.y += ny*overlap;
-
-        const tx=a.vx;
-        const ty=a.vy;
-        a.vx=b.vx;
-        a.vy=b.vy;
-        b.vx=tx;
-        b.vy=ty;
-    }
+function collide(a,b){
+const dx=b.x-a.x;
+const dy=b.y-a.y;
+const d=Math.sqrt(dx*dx+dy*dy);
+if(d<a.r+b.r){
+const nx=dx/d;
+const ny=dy/d;
+const overlap=(a.r+b.r-d)/2;
+a.x-=nx*overlap;
+a.y-=ny*overlap;
+b.x+=nx*overlap;
+b.y+=ny*overlap;
+[a.vx,b.vx]=[b.vx,a.vx];
+[a.vy,b.vy]=[b.vy,a.vy];
+}
 }
 
 function update(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    gapAngle += 0.02;
+gapAngle+=0.02;
 
-    // Çemberi iki ayrı arc olarak çiziyoruz (boşluk hariç)
-    ctx.beginPath();
-    ctx.lineWidth = wallThickness;
-    ctx.strokeStyle = "black";
+/* DUVAR */
+ctx.beginPath();
+ctx.lineWidth=wallThickness;
+ctx.strokeStyle="black";
+ctx.arc(centerX,centerY,arenaRadius,0,Math.PI*2);
+ctx.stroke();
 
-    ctx.arc(centerX, centerY, arenaRadius,
-        gapAngle + gapSize,
-        gapAngle + Math.PI
-    );
-    ctx.stroke();
+/* GAP */
+ctx.clearRect(
+centerX+Math.cos(gapAngle)*arenaRadius-30,
+centerY+Math.sin(gapAngle)*arenaRadius-30,
+60,60
+);
 
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, arenaRadius,
-        gapAngle + Math.PI,
-        gapAngle + Math.PI*2
-    );
-    ctx.stroke();
+if(gameActive){
 
-    if(gameActive){
+for(let i=0;i<flags.length;i++)
+for(let j=i+1;j<flags.length;j++)
+collide(flags[i],flags[j]);
 
-        for(let i=0;i<flags.length;i++){
-            for(let j=i+1;j<flags.length;j++){
-                circleCollision(flags[i],flags[j]);
-            }
-        }
+flags.forEach(f=>{
+f.x+=f.vx;
+f.y+=f.vy;
 
-        flags.forEach(f=>{
-            f.x+=f.vx;
-            f.y+=f.vy;
+const dx=f.x-centerX;
+const dy=f.y-centerY;
+const dist=Math.sqrt(dx*dx+dy*dy);
 
-            const dx=f.x-centerX;
-            const dy=f.y-centerY;
-            const dist=Math.sqrt(dx*dx+dy*dy);
-            const innerLimit = arenaRadius - wallThickness/2;
+const inner=arenaRadius-wallThickness/2;
 
-            if(dist + f.radius > innerLimit){
+if(dist+f.r>inner){
 
-                const angle=Math.atan2(dy,dx);
-                const relative = (angle - gapAngle + Math.PI*2)%(Math.PI*2);
+const angle=Math.atan2(dy,dx);
+const rel=(angle-gapAngle+Math.PI*2)%(Math.PI*2);
 
-                const nx=dx/dist;
-                const ny=dy/dist;
-                const dot = f.vx*nx + f.vy*ny;
+const nx=dx/dist;
+const ny=dy/dist;
+const dot=f.vx*nx+f.vy*ny;
 
-                const insideGap = relative < gapSize;
+/* sadece gap alanında ve dışa gidiyorsa çık */
+if(rel<gapSize && dot>0){
+eliminated.push(f);
+}else{
+/* ZORLA İÇERİ CLAMP */
+f.x=centerX+nx*(inner-f.r);
+f.y=centerY+ny*(inner-f.r);
 
-                if(insideGap && dot>0){
-                    eliminated.push(f);
-                } else {
-                    // %100 sekme
-                    f.vx -= 2*dot*nx;
-                    f.vy -= 2*dot*ny;
+/* SEKME */
+f.vx-=2*dot*nx;
+f.vy-=2*dot*ny;
+}
+}
+});
 
-                    f.x = centerX + nx*(innerLimit - f.radius);
-                    f.y = centerY + ny*(innerLimit - f.radius);
-                }
-            }
-        });
+flags=flags.filter(f=>!eliminated.includes(f));
 
-        flags=flags.filter(f=>!eliminated.includes(f));
+if(flags.length===1){
+const w=flags[0];
+wins[w.name]=(wins[w.name]||0)+1;
+updateWins();
+gameActive=false;
+setTimeout(reset,2500);
+}
+}
 
-        if(flags.length===1){
-            const winner=flags[0];
-            wins[winner.name]=(wins[winner.name]||0)+1;
-            updateWins();
-            gameActive=false;
-            setTimeout(resetGame,2500);
-        }
-    }
+/* ÇİZ */
+flags.forEach(f=>{
+ctx.drawImage(f.img,f.x-f.r,f.y-f.r,f.r*2,f.r*2);
+});
 
-    flags.forEach(f=>{
-        ctx.drawImage(f.img,f.x-f.radius,f.y-f.radius,f.radius*2,f.radius*2);
-    });
+/* ELENENLER */
+eliminated.forEach((f,i)=>{
+ctx.drawImage(f.img,20+i*22,canvas.height-50,20,14);
+});
 
-    requestAnimationFrame(update);
+requestAnimationFrame(update);
 }
 
 function updateWins(){
-    const list=document.getElementById("winsList");
-    list.innerHTML="";
-    const sorted=Object.entries(wins)
-        .sort((a,b)=>b[1]-a[1])
-        .slice(0,10);
-
-    sorted.forEach(entry=>{
-        const div=document.createElement("div");
-        div.className="winItem";
-        const img=document.createElement("img");
-        img.src=entry[0];
-        const span=document.createElement("span");
-        span.innerText=" x "+entry[1];
-        div.appendChild(img);
-        div.appendChild(span);
-        list.appendChild(div);
-    });
+const list=document.getElementById("winsList");
+list.innerHTML="";
+Object.entries(wins)
+.sort((a,b)=>b[1]-a[1])
+.slice(0,10)
+.forEach(e=>{
+const d=document.createElement("div");
+d.className="winItem";
+const img=document.createElement("img");
+img.src=e[0];
+const s=document.createElement("span");
+s.innerText=" x "+e[1];
+d.appendChild(img);
+d.appendChild(s);
+list.appendChild(d);
+});
 }
 
-function resetGame(){
-    eliminated=[];
-    loadFlags();
-    startCountdown();
+function reset(){
+eliminated=[];
+loadFlags();
+startCountdown();
 }
 
 loadFlags();
 startCountdown();
 update();
 </script>
-
 </body>
 </html>
