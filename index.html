@@ -67,8 +67,8 @@ canvas.height = window.innerHeight;
 const centerX = canvas.width/2;
 const centerY = canvas.height/2 - 50;
 const arenaRadius = 260;
-const wallThickness = 16;
-const gapSize = Math.PI / 10;
+const wallThickness = 18;
+const gapSize = Math.PI / 9;
 
 let gapAngle = 0;
 let flags = [];
@@ -76,7 +76,6 @@ let eliminated = [];
 let wins = {};
 let gameActive = false;
 
-/* ~60 ülke */
 const countryCodes = [
 "tr","us","de","fr","br","jp","it","es","gb","ca",
 "ru","cn","in","ar","mx","nl","se","no","fi","pl",
@@ -86,7 +85,7 @@ const countryCodes = [
 "id","ph","sg","pk","bd","ng","ke","ma","tn","dz"
 ];
 
-const flagSources = countryCodes.map(code => 
+const flagSources = countryCodes.map(code =>
     `https://flagcdn.com/w80/${code}.png`
 );
 
@@ -98,10 +97,10 @@ function loadFlags(){
         flags.push({
             img: img,
             name: src,
-            x: centerX + (Math.random()-0.5)*120,
-            y: centerY + (Math.random()-0.5)*120,
-            vx: (Math.random()-0.5)*3,  // hız ciddi düşürüldü
-            vy: (Math.random()-0.5)*3,
+            x: centerX + (Math.random()-0.5)*140,
+            y: centerY + (Math.random()-0.5)*140,
+            vx: (Math.random()-0.5)*4, // hız arttı
+            vy: (Math.random()-0.5)*4,
             radius: 16
         });
     });
@@ -149,21 +148,18 @@ function circleCollision(a,b){
 function update(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    gapAngle += 0.015;
+    gapAngle += 0.02;
 
-    // Arena
+    // Arena duvarı (boşluk hariç)
     ctx.beginPath();
-    ctx.arc(centerX, centerY, arenaRadius, 0, Math.PI*2);
     ctx.lineWidth = wallThickness;
-    ctx.stroke();
+    ctx.strokeStyle = "black";
 
-    // Gap görsel
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, arenaRadius, gapAngle, gapAngle+gapSize);
-    ctx.strokeStyle="red";
-    ctx.lineWidth=wallThickness+2;
+    ctx.arc(centerX, centerY, arenaRadius,
+        gapAngle+gapSize,
+        gapAngle + Math.PI*2
+    );
     ctx.stroke();
-    ctx.strokeStyle="black";
 
     if(gameActive){
 
@@ -180,30 +176,22 @@ function update(){
             const dx=f.x-centerX;
             const dy=f.y-centerY;
             const dist=Math.sqrt(dx*dx+dy*dy);
-
             const innerLimit = arenaRadius - wallThickness/2;
 
             if(dist + f.radius > innerLimit){
 
                 const angle=Math.atan2(dy,dx);
-                let diff=angle-gapAngle;
-                diff=(diff+Math.PI*2)%(Math.PI*2);
+                let diff=(angle-gapAngle+Math.PI*2)%(Math.PI*2);
 
                 const nx=dx/dist;
                 const ny=dy/dist;
-
-                // Kapıdan çıkma şartı:
-                // 1) Açı gap içinde olacak
-                // 2) Bayrak dışa doğru hareket ediyor olacak (dot > 0)
                 const dot = f.vx*nx + f.vy*ny;
 
                 if(diff < gapSize && dot > 0){
                     eliminated.push(f);
                 } else {
-                    // Duvar sekmesi
                     f.vx -= 2*dot*nx;
                     f.vy -= 2*dot*ny;
-
                     f.x = centerX + nx*(innerLimit - f.radius);
                     f.y = centerY + ny*(innerLimit - f.radius);
                 }
