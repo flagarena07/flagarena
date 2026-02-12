@@ -11,10 +11,21 @@ canvas { display:block; }
     position:absolute;
     top:20px;
     right:20px;
-    width:200px;
+    width:220px;
     font-size:14px;
 }
 #winsBoard h3 { margin:0 0 10px 0; }
+
+.winItem{
+    display:flex;
+    align-items:center;
+    margin-bottom:5px;
+}
+.winItem img{
+    width:20px;
+    height:15px;
+    margin-right:6px;
+}
 
 #countdown {
     position:absolute;
@@ -56,7 +67,8 @@ canvas.height = window.innerHeight;
 const centerX = canvas.width/2;
 const centerY = canvas.height/2 - 50;
 const arenaRadius = 260;
-const gapSize = Math.PI / 7;
+const wallThickness = 15;
+const gapSize = Math.PI / 8;
 
 let gapAngle = 0;
 let flags = [];
@@ -75,7 +87,7 @@ const flagSources = [
 "https://flagcdn.com/w80/es.png"
 ];
 
-function loadFlags() {
+function loadFlags(){
     flags = [];
     flagSources.forEach(src=>{
         const img = new Image();
@@ -85,67 +97,67 @@ function loadFlags() {
             name: src,
             x: centerX + (Math.random()-0.5)*100,
             y: centerY + (Math.random()-0.5)*100,
-            vx: (Math.random()-0.5)*10, // hız artırıldı
-            vy: (Math.random()-0.5)*10,
-            radius: 25
+            vx: (Math.random()-0.5)*6, // hız düşürüldü
+            vy: (Math.random()-0.5)*6,
+            radius: 22
         });
     });
 }
 
-function startCountdown() {
-    let count = 3;
-    const cd = document.getElementById("countdown");
-    cd.innerText = count;
-    const interval = setInterval(()=>{
+function startCountdown(){
+    let count=3;
+    const cd=document.getElementById("countdown");
+    cd.innerText=count;
+    const interval=setInterval(()=>{
         count--;
-        if(count >= 0) cd.innerText = count;
-        if(count < 0) {
+        if(count>=0) cd.innerText=count;
+        if(count<0){
             clearInterval(interval);
-            cd.innerText = "";
-            gameActive = true;
+            cd.innerText="";
+            gameActive=true;
         }
     },1000);
 }
 
 function circleCollision(a,b){
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    if(dist < a.radius + b.radius){
-        const angle = Math.atan2(dy,dx);
-        const targetX = a.x + Math.cos(angle)*(a.radius+b.radius);
-        const targetY = a.y + Math.sin(angle)*(a.radius+b.radius);
-        const ax = (targetX - b.x)*0.5;
-        const ay = (targetY - b.y)*0.5;
-        a.vx -= ax;
-        a.vy -= ay;
-        b.vx += ax;
-        b.vy += ay;
+    const dx=b.x-a.x;
+    const dy=b.y-a.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist < a.radius+b.radius){
+        const angle=Math.atan2(dy,dx);
+        const targetX=a.x+Math.cos(angle)*(a.radius+b.radius);
+        const targetY=a.y+Math.sin(angle)*(a.radius+b.radius);
+        const ax=(targetX-b.x)*0.3;
+        const ay=(targetY-b.y)*0.3;
+        a.vx-=ax;
+        a.vy-=ay;
+        b.vx+=ax;
+        b.vy+=ay;
     }
 }
 
 function update(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    gapAngle += 0.03;
+    gapAngle += 0.02;
 
-    // Arena çizimi
+    // Arena duvarı (kalın ring)
     ctx.beginPath();
     ctx.arc(centerX, centerY, arenaRadius, 0, Math.PI*2);
-    ctx.lineWidth = 3;
+    ctx.lineWidth = wallThickness;
     ctx.stroke();
 
-    // Gap görsel
+    // Gap görseli
     ctx.beginPath();
     ctx.arc(centerX, centerY, arenaRadius, gapAngle, gapAngle+gapSize);
     ctx.strokeStyle="red";
-    ctx.lineWidth=6;
+    ctx.lineWidth=wallThickness+2;
     ctx.stroke();
     ctx.strokeStyle="black";
-    ctx.lineWidth=1;
 
     if(gameActive){
-        // Çarpışma kontrolü
+
+        // Bayrak-bayrak çarpışma
         for(let i=0;i<flags.length;i++){
             for(let j=i+1;j<flags.length;j++){
                 circleCollision(flags[i],flags[j]);
@@ -153,36 +165,44 @@ function update(){
         }
 
         flags.forEach(f=>{
-            f.x += f.vx;
-            f.y += f.vy;
+            f.x+=f.vx;
+            f.y+=f.vy;
 
-            const dx = f.x - centerX;
-            const dy = f.y - centerY;
-            const dist = Math.sqrt(dx*dx + dy*dy);
+            const dx=f.x-centerX;
+            const dy=f.y-centerY;
+            const dist=Math.sqrt(dx*dx+dy*dy);
 
-            if(dist + f.radius > arenaRadius){
-                const angle = Math.atan2(dy,dx);
-                let diff = angle - gapAngle;
-                diff = (diff + Math.PI*2) % (Math.PI*2);
+            const innerLimit = arenaRadius - wallThickness/2;
 
-                if(diff > gapSize){
-                    // Sekme (duvardan çıkamaz)
-                    const nx = dx/dist;
-                    const ny = dy/dist;
-                    const dot = f.vx*nx + f.vy*ny;
-                    f.vx -= 2*dot*nx;
-                    f.vy -= 2*dot*ny;
-                } else {
+            if(dist + f.radius > innerLimit){
+
+                const angle=Math.atan2(dy,dx);
+                let diff=angle-gapAngle;
+                diff=(diff+Math.PI*2)%(Math.PI*2);
+
+                if(diff < gapSize){
+                    // gerçekten boşluktan çıktıysa
                     eliminated.push(f);
+                } else {
+                    // duvara çarpma
+                    const nx=dx/dist;
+                    const ny=dy/dist;
+                    const dot=f.vx*nx+f.vy*ny;
+                    f.vx-=2*dot*nx;
+                    f.vy-=2*dot*ny;
+
+                    // duvar içine gömülmeyi engelle
+                    f.x = centerX + nx*(innerLimit - f.radius);
+                    f.y = centerY + ny*(innerLimit - f.radius);
                 }
             }
         });
 
-        flags = flags.filter(f=>!eliminated.includes(f));
+        flags=flags.filter(f=>!eliminated.includes(f));
 
-        if(flags.length === 1){
-            const winner = flags[0];
-            wins[winner.name] = (wins[winner.name]||0)+1;
+        if(flags.length===1){
+            const winner=flags[0];
+            wins[winner.name]=(wins[winner.name]||0)+1;
             updateWins();
             gameActive=false;
             setTimeout(resetGame,2000);
@@ -198,21 +218,31 @@ function update(){
 }
 
 function drawEliminated(){
-    const startY = canvas.height - 80;
+    const startY=canvas.height-80;
     eliminated.forEach((f,i)=>{
-        ctx.drawImage(f.img,40 + i*45,startY,40,40);
+        ctx.drawImage(f.img,40+i*45,startY,40,30);
     });
 }
 
 function updateWins(){
-    const list = document.getElementById("winsList");
+    const list=document.getElementById("winsList");
     list.innerHTML="";
-    const sorted = Object.entries(wins)
+    const sorted=Object.entries(wins)
         .sort((a,b)=>b[1]-a[1])
         .slice(0,10);
+
     sorted.forEach(entry=>{
         const div=document.createElement("div");
-        div.innerText = entry[0].split("/").pop() + " - " + entry[1];
+        div.className="winItem";
+
+        const img=document.createElement("img");
+        img.src=entry[0];
+
+        const span=document.createElement("span");
+        span.innerText=" x "+entry[1];
+
+        div.appendChild(img);
+        div.appendChild(span);
         list.appendChild(div);
     });
 }
