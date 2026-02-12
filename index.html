@@ -6,44 +6,12 @@
 <style>
 body { margin:0; background:white; overflow:hidden; font-family:Arial; }
 canvas { display:block; }
-
-#winsBoard {
-    position:absolute;
-    top:20px;
-    right:20px;
-    width:230px;
-    font-size:13px;
-}
+#winsBoard { position:absolute; top:20px; right:20px; width:230px; font-size:13px; }
 #winsBoard h3 { margin:0 0 10px 0; }
-
-.winItem{
-    display:flex;
-    align-items:center;
-    margin-bottom:4px;
-}
-.winItem img{
-    width:18px;
-    height:12px;
-    margin-right:6px;
-}
-
-#countdown {
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-size:80px;
-    font-weight:bold;
-}
-
-#title {
-    position:absolute;
-    top:40%;
-    left:50%;
-    transform:translateX(-50%);
-    font-size:50px;
-    opacity:0.08;
-}
+.winItem{ display:flex; align-items:center; margin-bottom:4px; }
+.winItem img{ width:18px; height:12px; margin-right:6px; }
+#countdown { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:80px; font-weight:bold; }
+#title { position:absolute; top:40%; left:50%; transform:translateX(-50%); font-size:50px; opacity:0.08; }
 </style>
 </head>
 <body>
@@ -68,7 +36,7 @@ const centerX = canvas.width/2;
 const centerY = canvas.height/2 - 50;
 const arenaRadius = 260;
 const wallThickness = 18;
-const gapSize = Math.PI / 9;
+const gapSize = Math.PI / 8;
 
 let gapAngle = 0;
 let flags = [];
@@ -97,10 +65,10 @@ function loadFlags(){
         flags.push({
             img: img,
             name: src,
-            x: centerX + (Math.random()-0.5)*140,
-            y: centerY + (Math.random()-0.5)*140,
-            vx: (Math.random()-0.5)*4, // hız arttı
-            vy: (Math.random()-0.5)*4,
+            x: centerX + (Math.random()-0.5)*120,
+            y: centerY + (Math.random()-0.5)*120,
+            vx: (Math.random()-0.5)*3.5,
+            vy: (Math.random()-0.5)*3.5,
             radius: 16
         });
     });
@@ -136,12 +104,12 @@ function circleCollision(a,b){
         b.x += nx*overlap;
         b.y += ny*overlap;
 
-        const tempVx=a.vx;
-        const tempVy=a.vy;
+        const tx=a.vx;
+        const ty=a.vy;
         a.vx=b.vx;
         a.vy=b.vy;
-        b.vx=tempVx;
-        b.vy=tempVy;
+        b.vx=tx;
+        b.vy=ty;
     }
 }
 
@@ -150,13 +118,20 @@ function update(){
 
     gapAngle += 0.02;
 
-    // Arena duvarı (boşluk hariç)
+    // Çemberi iki ayrı arc olarak çiziyoruz (boşluk hariç)
     ctx.beginPath();
     ctx.lineWidth = wallThickness;
     ctx.strokeStyle = "black";
 
     ctx.arc(centerX, centerY, arenaRadius,
-        gapAngle+gapSize,
+        gapAngle + gapSize,
+        gapAngle + Math.PI
+    );
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, arenaRadius,
+        gapAngle + Math.PI,
         gapAngle + Math.PI*2
     );
     ctx.stroke();
@@ -181,17 +156,21 @@ function update(){
             if(dist + f.radius > innerLimit){
 
                 const angle=Math.atan2(dy,dx);
-                let diff=(angle-gapAngle+Math.PI*2)%(Math.PI*2);
+                const relative = (angle - gapAngle + Math.PI*2)%(Math.PI*2);
 
                 const nx=dx/dist;
                 const ny=dy/dist;
                 const dot = f.vx*nx + f.vy*ny;
 
-                if(diff < gapSize && dot > 0){
+                const insideGap = relative < gapSize;
+
+                if(insideGap && dot>0){
                     eliminated.push(f);
                 } else {
+                    // %100 sekme
                     f.vx -= 2*dot*nx;
                     f.vy -= 2*dot*ny;
+
                     f.x = centerX + nx*(innerLimit - f.radius);
                     f.y = centerY + ny*(innerLimit - f.radius);
                 }
@@ -213,15 +192,7 @@ function update(){
         ctx.drawImage(f.img,f.x-f.radius,f.y-f.radius,f.radius*2,f.radius*2);
     });
 
-    drawEliminated();
     requestAnimationFrame(update);
-}
-
-function drawEliminated(){
-    const startY=canvas.height-70;
-    eliminated.forEach((f,i)=>{
-        ctx.drawImage(f.img,20+i*25,startY,20,14);
-    });
 }
 
 function updateWins(){
@@ -234,13 +205,10 @@ function updateWins(){
     sorted.forEach(entry=>{
         const div=document.createElement("div");
         div.className="winItem";
-
         const img=document.createElement("img");
         img.src=entry[0];
-
         const span=document.createElement("span");
         span.innerText=" x "+entry[1];
-
         div.appendChild(img);
         div.appendChild(span);
         list.appendChild(div);
