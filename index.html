@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <title>FLAG ARENA</title>
 <style>
-body { margin:0; background:white; overflow:hidden; font-family:Arial; }
-canvas { display:block; }
-#winsBoard { position:absolute; top:20px; right:20px; width:230px; font-size:13px; }
-.winItem{ display:flex; align-items:center; margin-bottom:4px; }
-.winItem img{ width:18px; height:12px; margin-right:6px; }
-#countdown { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:80px; font-weight:bold; }
+body{margin:0;background:white;overflow:hidden;font-family:Arial;}
+canvas{display:block;}
+#winsBoard{position:absolute;top:20px;right:20px;width:230px;font-size:13px;}
+.winItem{display:flex;align-items:center;margin-bottom:4px;}
+.winItem img{width:18px;height:12px;margin-right:6px;}
+#countdown{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:80px;font-weight:bold;}
 </style>
 </head>
 <body>
@@ -24,22 +24,25 @@ canvas { display:block; }
 <canvas id="game"></canvas>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
 
-const centerX = canvas.width/2;
-const centerY = canvas.height/2 - 40;
-const arenaRadius = 260;
-const wallThickness = 18;
-const gapSize = Math.PI/8;
+const centerX=canvas.width/2;
+const centerY=canvas.height/2-40;
 
-let gapAngle = 0;
+const outerRadius=260;
+const wallThickness=20;
+const innerRadius=outerRadius-wallThickness;
+
+const gapSize=Math.PI/8;
+
+let gapAngle=0;
 let flags=[];
 let eliminated=[];
 let wins={};
-let gameActive=false;
+let active=false;
 
 const codes=[
 "tr","us","de","fr","br","jp","it","es","gb","ca",
@@ -53,46 +56,70 @@ const codes=[
 function loadFlags(){
 flags=[];
 codes.forEach(c=>{
-const img=new Image();
+let img=new Image();
 img.src=`https://flagcdn.com/w80/${c}.png`;
 flags.push({
 img:img,
 name:img.src,
-x:centerX+(Math.random()-0.5)*120,
-y:centerY+(Math.random()-0.5)*120,
-vx:(Math.random()-0.5)*3.2,
-vy:(Math.random()-0.5)*3.2,
+x:centerX+(Math.random()-0.5)*100,
+y:centerY+(Math.random()-0.5)*100,
+vx:(Math.random()-0.5)*3,
+vy:(Math.random()-0.5)*3,
 r:16
 });
 });
 }
 
-function startCountdown(){
+function countdown(){
 let c=3;
-const el=document.getElementById("countdown");
+let el=document.getElementById("countdown");
 el.innerText=c;
-const i=setInterval(()=>{
+let i=setInterval(()=>{
 c--;
 if(c>=0) el.innerText=c;
-if(c<0){clearInterval(i);el.innerText="";gameActive=true;}
+if(c<0){clearInterval(i);el.innerText="";active=true;}
 },1000);
 }
 
 function collide(a,b){
-const dx=b.x-a.x;
-const dy=b.y-a.y;
-const d=Math.sqrt(dx*dx+dy*dy);
+let dx=b.x-a.x;
+let dy=b.y-a.y;
+let d=Math.sqrt(dx*dx+dy*dy);
 if(d<a.r+b.r){
-const nx=dx/d;
-const ny=dy/d;
-const overlap=(a.r+b.r-d)/2;
-a.x-=nx*overlap;
-a.y-=ny*overlap;
-b.x+=nx*overlap;
-b.y+=ny*overlap;
+let nx=dx/d;
+let ny=dy/d;
+let o=(a.r+b.r-d)/2;
+a.x-=nx*o;
+a.y-=ny*o;
+b.x+=nx*o;
+b.y+=ny*o;
 [a.vx,b.vx]=[b.vx,a.vx];
 [a.vy,b.vy]=[b.vy,a.vy];
 }
+}
+
+function drawWall(){
+ctx.fillStyle="black";
+ctx.beginPath();
+
+/* dış çember */
+ctx.arc(centerX,centerY,outerRadius,0,Math.PI*2);
+
+/* iç boşluk */
+ctx.arc(centerX,centerY,innerRadius,0,Math.PI*2,true);
+
+ctx.fill();
+
+/* GAP'İ SİL */
+ctx.globalCompositeOperation="destination-out";
+ctx.beginPath();
+ctx.moveTo(centerX,centerY);
+ctx.arc(centerX,centerY,outerRadius,
+gapAngle,
+gapAngle+gapSize);
+ctx.closePath();
+ctx.fill();
+ctx.globalCompositeOperation="source-over";
 }
 
 function update(){
@@ -100,21 +127,9 @@ ctx.clearRect(0,0,canvas.width,canvas.height);
 
 gapAngle+=0.02;
 
-/* DUVAR */
-ctx.beginPath();
-ctx.lineWidth=wallThickness;
-ctx.strokeStyle="black";
-ctx.arc(centerX,centerY,arenaRadius,0,Math.PI*2);
-ctx.stroke();
+drawWall();
 
-/* GAP */
-ctx.clearRect(
-centerX+Math.cos(gapAngle)*arenaRadius-30,
-centerY+Math.sin(gapAngle)*arenaRadius-30,
-60,60
-);
-
-if(gameActive){
+if(active){
 
 for(let i=0;i<flags.length;i++)
 for(let j=i+1;j<flags.length;j++)
@@ -124,30 +139,25 @@ flags.forEach(f=>{
 f.x+=f.vx;
 f.y+=f.vy;
 
-const dx=f.x-centerX;
-const dy=f.y-centerY;
-const dist=Math.sqrt(dx*dx+dy*dy);
+let dx=f.x-centerX;
+let dy=f.y-centerY;
+let dist=Math.sqrt(dx*dx+dy*dy);
 
-const inner=arenaRadius-wallThickness/2;
+if(dist+f.r>innerRadius){
 
-if(dist+f.r>inner){
+let angle=Math.atan2(dy,dx);
+let rel=(angle-gapAngle+Math.PI*2)%(Math.PI*2);
 
-const angle=Math.atan2(dy,dx);
-const rel=(angle-gapAngle+Math.PI*2)%(Math.PI*2);
+let nx=dx/dist;
+let ny=dy/dist;
+let dot=f.vx*nx+f.vy*ny;
 
-const nx=dx/dist;
-const ny=dy/dist;
-const dot=f.vx*nx+f.vy*ny;
-
-/* sadece gap alanında ve dışa gidiyorsa çık */
 if(rel<gapSize && dot>0){
 eliminated.push(f);
 }else{
-/* ZORLA İÇERİ CLAMP */
-f.x=centerX+nx*(inner-f.r);
-f.y=centerY+ny*(inner-f.r);
-
-/* SEKME */
+/* kesin clamp */
+f.x=centerX+nx*(innerRadius-f.r);
+f.y=centerY+ny*(innerRadius-f.r);
 f.vx-=2*dot*nx;
 f.vy-=2*dot*ny;
 }
@@ -157,20 +167,20 @@ f.vy-=2*dot*ny;
 flags=flags.filter(f=>!eliminated.includes(f));
 
 if(flags.length===1){
-const w=flags[0];
+let w=flags[0];
 wins[w.name]=(wins[w.name]||0)+1;
 updateWins();
-gameActive=false;
+active=false;
 setTimeout(reset,2500);
 }
 }
 
-/* ÇİZ */
+/* bayrak çiz */
 flags.forEach(f=>{
 ctx.drawImage(f.img,f.x-f.r,f.y-f.r,f.r*2,f.r*2);
 });
 
-/* ELENENLER */
+/* elenen çiz */
 eliminated.forEach((f,i)=>{
 ctx.drawImage(f.img,20+i*22,canvas.height-50,20,14);
 });
@@ -179,17 +189,17 @@ requestAnimationFrame(update);
 }
 
 function updateWins(){
-const list=document.getElementById("winsList");
+let list=document.getElementById("winsList");
 list.innerHTML="";
 Object.entries(wins)
 .sort((a,b)=>b[1]-a[1])
 .slice(0,10)
 .forEach(e=>{
-const d=document.createElement("div");
+let d=document.createElement("div");
 d.className="winItem";
-const img=document.createElement("img");
+let img=document.createElement("img");
 img.src=e[0];
-const s=document.createElement("span");
+let s=document.createElement("span");
 s.innerText=" x "+e[1];
 d.appendChild(img);
 d.appendChild(s);
@@ -200,11 +210,11 @@ list.appendChild(d);
 function reset(){
 eliminated=[];
 loadFlags();
-startCountdown();
+countdown();
 }
 
 loadFlags();
-startCountdown();
+countdown();
 update();
 </script>
 </body>
