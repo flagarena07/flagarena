@@ -101,22 +101,14 @@ b.y+=ny*o;
 function drawWall(){
 ctx.fillStyle="black";
 ctx.beginPath();
-
-/* dış çember */
 ctx.arc(centerX,centerY,outerRadius,0,Math.PI*2);
-
-/* iç boşluk */
 ctx.arc(centerX,centerY,innerRadius,0,Math.PI*2,true);
-
 ctx.fill();
 
-/* GAP'İ SİL */
 ctx.globalCompositeOperation="destination-out";
 ctx.beginPath();
 ctx.moveTo(centerX,centerY);
-ctx.arc(centerX,centerY,outerRadius,
-gapAngle,
-gapAngle+gapSize);
+ctx.arc(centerX,centerY,outerRadius,gapAngle,gapAngle+gapSize);
 ctx.closePath();
 ctx.fill();
 ctx.globalCompositeOperation="source-over";
@@ -136,32 +128,49 @@ for(let j=i+1;j<flags.length;j++)
 collide(flags[i],flags[j]);
 
 flags.forEach(f=>{
-f.x+=f.vx;
-f.y+=f.vy;
 
-let dx=f.x-centerX;
-let dy=f.y-centerY;
-let dist=Math.sqrt(dx*dx+dy*dy);
+let oldX=f.x;
+let oldY=f.y;
 
-if(dist+f.r>innerRadius){
+let newX=f.x+f.vx;
+let newY=f.y+f.vy;
+
+let dx=newX-centerX;
+let dy=newY-centerY;
+let newDist=Math.sqrt(dx*dx+dy*dy);
 
 let angle=Math.atan2(dy,dx);
 let rel=(angle-gapAngle+Math.PI*2)%(Math.PI*2);
 
-let nx=dx/dist;
-let ny=dy/dist;
-let dot=f.vx*nx+f.vy*ny;
+if(newDist+f.r>innerRadius){
 
-if(rel<gapSize && dot>0){
+if(rel<gapSize){
+f.x=newX;
+f.y=newY;
 eliminated.push(f);
-}else{
-/* kesin clamp */
+return;
+}
+
+let oldDX=oldX-centerX;
+let oldDY=oldY-centerY;
+let oldDist=Math.sqrt(oldDX*oldDX+oldDY*oldDY);
+
+let nx=oldDX/oldDist;
+let ny=oldDY/oldDist;
+
 f.x=centerX+nx*(innerRadius-f.r);
 f.y=centerY+ny*(innerRadius-f.r);
-f.vx-=2*dot*nx;
-f.vy-=2*dot*ny;
+
+let dot=f.vx*nx+f.vy*ny;
+
+f.vx=f.vx-2*dot*nx;
+f.vy=f.vy-2*dot*ny;
+
+}else{
+f.x=newX;
+f.y=newY;
 }
-}
+
 });
 
 flags=flags.filter(f=>!eliminated.includes(f));
@@ -175,12 +184,10 @@ setTimeout(reset,2500);
 }
 }
 
-/* bayrak çiz */
 flags.forEach(f=>{
 ctx.drawImage(f.img,f.x-f.r,f.y-f.r,f.r*2,f.r*2);
 });
 
-/* elenen çiz */
 eliminated.forEach((f,i)=>{
 ctx.drawImage(f.img,20+i*22,canvas.height-50,20,14);
 });
